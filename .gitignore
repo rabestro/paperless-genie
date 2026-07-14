@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.log
+.gemini/
+/documents/
+/paperless/
+.agents/
