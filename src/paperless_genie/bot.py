@@ -44,7 +44,7 @@ async def send_welcome(message: Message) -> None:
         "upload it, set proper metadata (title, correspondent, tags, type), and "
         "add a detailed note.\n"
         "2. **Search and Query:** Ask me any questions about your documents "
-        "(e.g., 'Find Rudolf Svirskis' passport' or 'List all contracts from 1993').\n\n"
+        "(e.g., 'Find John Doe's passport' or 'List all contracts from 1993').\n\n"
         "All actions are executed using your personal credentials and permissions.",
         parse_mode="Markdown",
     )
@@ -122,7 +122,7 @@ async def handle_document(message: Message) -> None:
                 "4. Wait for OCR to complete, then update its metadata "
                 "(Title, Created Date, Correspondent, Document Type).\n"
                 "5. Assign tags: '👥 Family' (ID 11) for family documents, "
-                "'Marina' (ID 12) for Marina Leonidovna, "
+                "'Jane' (ID 12) for Jane Doe, "
                 "'🏛️ History' (ID 5) for historical documents, "
                 "'🎓 Education' (ID 18) for certificates/diplomas.\n"
                 "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
