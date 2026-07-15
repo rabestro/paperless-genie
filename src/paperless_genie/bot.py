@@ -97,6 +97,7 @@ async def handle_document(message: Message) -> None:
             mcp_env = {
                 "PAPERLESS_URL": Config.PAPERLESS_URL,
                 "PAPERLESS_API_TOKEN": user_token,
+                "PAPERLESS_API_KEY": user_token,
             }
             # Inherit host env to ensure Node/npm/etc. can be found
             for k, v in os.environ.items():
@@ -107,7 +108,7 @@ async def handle_document(message: Message) -> None:
             mcp_server = McpStdioServer(
                 name="paperless-ngx",
                 command="npx",
-                args=["-y", "@modelcontextprotocol/server-paperless-ngx"],
+                args=["-y", "@baruchiro/paperless-mcp"],
                 env=mcp_env,
             )
 
@@ -196,6 +197,7 @@ async def handle_text_query(message: Message) -> None:
         mcp_env = {
             "PAPERLESS_URL": Config.PAPERLESS_URL,
             "PAPERLESS_API_TOKEN": user_token,
+            "PAPERLESS_API_KEY": user_token,
         }
         for k, v in os.environ.items():
             if k not in mcp_env:
@@ -204,7 +206,7 @@ async def handle_text_query(message: Message) -> None:
         mcp_server = McpStdioServer(
             name="paperless-ngx",
             command="npx",
-            args=["-y", "@modelcontextprotocol/server-paperless-ngx"],
+            args=["-y", "@baruchiro/paperless-mcp"],
             env=mcp_env,
         )
 
