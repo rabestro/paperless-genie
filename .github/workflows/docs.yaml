@@ -1,0 +1,31 @@
+name: Publish Documentation
+
+on:
+  push:
+    branches: [ "main" ]
+
+# Grant write permissions so the runner can push the built site to the gh-pages branch
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras
+
+      - name: Deploy documentation via MkDocs
+        run: uv run mkdocs gh-deploy --force
