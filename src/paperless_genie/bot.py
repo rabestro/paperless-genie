@@ -1,7 +1,9 @@
 import logging
 import os
+import tempfile
 
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
+from google.antigravity.types import McpStdioServer
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
 
@@ -9,123 +11,165 @@ from paperless_genie.config import Config
 
 logger = logging.getLogger(__name__)
 
-# Инициализируем бота
+# Initialize the Telegram Bot
 bot = AsyncTeleBot(Config.TELEGRAM_BOT_TOKEN)
 
 
 def is_allowed(message: Message) -> bool:
-    return message.from_user is not None and message.from_user.id in Config.ALLOWED_USER_IDS
+    """Checks if the sender of the message is authorized to use the bot.
+
+    Args:
+        message: The received Telegram message.
+
+    Returns:
+        True if the user is authorized, False otherwise.
+    """
+    return message.from_user is not None and message.from_user.id in Config.USER_TOKENS
 
 
 @bot.message_handler(commands=["start", "help"])
 async def send_welcome(message: Message) -> None:
+    """Sends a welcome message explaining the bot capabilities.
+
+    Args:
+        message: The received Telegram message.
+    """
     if not is_allowed(message):
         return
     await bot.reply_to(
         message,
-        "🧠 Привет! Я ваш персональный помощник по архиву документов Paperless-ngx.\n\n"
-        "**Что я умею:**\n"
-        "1. **Обработка документов:** Отправьте мне PDF-файл, и я автоматически "
-        "проверю его по базе, загружу в Paperless, настрою метаданные и сохраню на диске.\n"
-        "2. **Поиск и вопросы:** Вы можете спросить меня о любых архивных документах "
-        "(например: 'Найди паспорт Свирского' или 'Какие договоры за 1993 год у нас есть?').\n\n"
-        "Отправьте мне файл или задайте вопрос!",
+        "🧞 Welcome! I am your AI assistant for Paperless-ngx.\n\n"
+        "**Features:**\n"
+        "1. **Archive documents:** Send me a PDF file, and I will check the database, "
+        "upload it, set proper metadata (title, correspondent, tags, type), and "
+        "add a detailed note.\n"
+        "2. **Search and Query:** Ask me any questions about your documents "
+        "(e.g., 'Find Rudolf Svirskis' passport' or 'List all contracts from 1993').\n\n"
+        "All actions are executed using your personal credentials and permissions.",
         parse_mode="Markdown",
     )
 
 
 @bot.message_handler(content_types=["document"])
 async def handle_document(message: Message) -> None:
+    """Processes document uploads by downloading them, running the AI agent,
+    and posting to Paperless.
+
+    Args:
+        message: The received Telegram message.
+    """
     if not is_allowed(message):
         return
 
-    if not message.document:
+    if not message.document or not message.from_user:
         return
 
     file_name = message.document.file_name
     if not file_name or not file_name.lower().endswith(".pdf"):
-        await bot.reply_to(message, "❌ Пожалуйста, отправьте документ в формате PDF.")
+        await bot.reply_to(message, "❌ Only PDF files are supported.")
         return
 
     status_message = await bot.reply_to(
-        message, "📥 Получаю файл и запускаю агента Antigravity..."
+        message, "📥 Downloading document and initializing agent..."
     )
 
     try:
-        # Скачиваем файл во временную директорию
+        # Get the user-specific Paperless API token
+        user_token = Config.get_token_for_user(message.from_user.id)
+
+        # Download the document to a temporary directory
         file_info = await bot.get_file(message.document.file_id)
         downloaded_file = await bot.download_file(file_info.file_path)
 
-        # Выделяем год из имени файла (например, "1993-01-18_MO.pdf" -> "1993")
-        year = "unknown"
-        if len(file_name) >= 4 and file_name[:4].isdigit():
-            year = file_name[:4]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_file_path = os.path.join(temp_dir, file_name)
+            with open(local_file_path, "wb") as f:
+                f.write(downloaded_file)
 
-        target_dir = os.path.join(Config.WORKSPACE_PATH, "documents", year)
-        os.makedirs(target_dir, exist_ok=True)
+            logger.info("Saved temporary file to %s", local_file_path)
+            await bot.edit_message_text(
+                "🧠 Analyzing the document with AI...",
+                chat_id=status_message.chat.id,
+                message_id=status_message.message_id,
+            )
 
-        local_file_path = os.path.join(target_dir, file_name)
-        with open(local_file_path, "wb") as f:
-            f.write(downloaded_file)
+            # Build environment variables for the MCP server
+            mcp_env = {
+                "PAPERLESS_URL": Config.PAPERLESS_URL,
+                "PAPERLESS_API_TOKEN": user_token,
+            }
+            # Inherit host env to ensure Node/npm/etc. can be found
+            for k, v in os.environ.items():
+                if k not in mcp_env:
+                    mcp_env[k] = v
 
-        logger.info(f"Файл сохранен локально: {local_file_path}")
-        await bot.edit_message_text(
-            "🧠 Файл сохранен. Агент начинает анализ и обработку...",
-            chat_id=status_message.chat.id,
-            message_id=status_message.message_id,
-        )
+            # Configure dynamic MCP server
+            mcp_server = McpStdioServer(
+                name="paperless-ngx",
+                command="npx",
+                args=["-y", "@modelcontextprotocol/server-paperless-ngx"],
+                env=mcp_env,
+            )
 
-        # Формулируем задачу для агента
-        prompt = f"""
-У нас есть новый документ в рабочем пространстве:
-Путь: {local_file_path}
+            # Archiving instructions for the agent
+            system_instructions = (
+                "You are an expert archiving assistant for the family archive in Paperless-ngx. "
+                "Always adhere to these rules when archiving documents:\n"
+                "1. Search the database to check if a document already exists "
+                "(by content or metadata).\n"
+                "2. If it exists, notify the user and stop.\n"
+                "3. If it does not exist, upload it using post_document.\n"
+                "4. Wait for OCR to complete, then update its metadata "
+                "(Title, Created Date, Correspondent, Document Type).\n"
+                "5. Assign tags: '👥 Family' (ID 11) for family documents, "
+                "'Marina' (ID 12) for Marina Leonidovna, "
+                "'🏛️ History' (ID 5) for historical documents, "
+                "'🎓 Education' (ID 18) for certificates/diplomas.\n"
+                "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
+                "7. Add a structured Russian note describing the document, "
+                "owner, and key details.\n"
+                "8. Output a final report in Russian describing what actions were done."
+            )
 
-Пожалуйста, выполни следующие шаги строго по правилам архивации из .agents/AGENTS.md:
-1. Проверь по базе Paperless-ngx (через MCP-инструменты), нет ли уже этого документа.
-2. Если он уже загружен, перемести локальный файл в соответствующую папку
-   paperless/{year}/{file_name}.
-3. Если документа нет:
-   - Загрузи его в Paperless (post_document).
-   - Дождись завершения OCR.
-   - Установи корректные метаданные (Title, Created Date, Correspondent, Document Type).
-   - Присвой теги по правилам (👥 Family, имя человека, 🏛️ History и т.д.)
-     и удали мусорные теги (📥 Inbox).
-   - Добавь к документу структурированную заметку с описанием на русском языке.
-   - Перемести локальный файл в paperless/{year}/{file_name}.
-4. Подготовь краткий markdown-отчет о выполненной работе для пользователя Telegram.
-"""
+            agent_config = LocalAgentConfig(
+                system_instructions=system_instructions,
+                mcp_servers=[mcp_server],
+                capabilities=CapabilitiesConfig(
+                    allow_file_write=True, allow_command_execution=True
+                ),
+                save_dir=temp_dir,
+            )
 
-        agent_config = LocalAgentConfig(
-            system_instructions=(
-                "Ты — эксперт по архивации документов в Латвии. "
-                "Всегда следуй правилам в .agents/AGENTS.md."
-            ),
-            capabilities=CapabilitiesConfig(allow_file_write=True, allow_command_execution=True),
-            workspace_dir=Config.WORKSPACE_PATH,
-        )
+            # Formulate the prompt for the agent
+            prompt = (
+                f"We have a new document to archive:\n"
+                f"Path: {local_file_path}\n"
+                f"Original Filename: {file_name}\n\n"
+                f"Please analyze, upload and categorize this document according to the guidelines."
+            )
 
-        async with Agent(agent_config) as agent:
-            response = await agent.chat(prompt)
-            agent_report = ""
-            async for token in response:
-                agent_report += token
+            async with Agent(agent_config) as agent:
+                response = await agent.chat(prompt)
+                agent_report = ""
+                async for token in response:
+                    agent_report += token
 
-        await bot.edit_message_text(
-            "✅ Обработка завершена!",
-            chat_id=status_message.chat.id,
-            message_id=status_message.message_id,
-        )
+            await bot.edit_message_text(
+                "✅ Processing completed!",
+                chat_id=status_message.chat.id,
+                message_id=status_message.message_id,
+            )
 
-        if len(agent_report) > 4000:
-            for i in range(0, len(agent_report), 4000):
-                await bot.send_message(message.chat.id, agent_report[i : i + 4000])
-        else:
-            await bot.send_message(message.chat.id, agent_report)
+            if len(agent_report) > 4000:
+                for i in range(0, len(agent_report), 4000):
+                    await bot.send_message(message.chat.id, agent_report[i : i + 4000])
+            else:
+                await bot.send_message(message.chat.id, agent_report)
 
     except Exception as e:
-        logger.exception("Ошибка при обработке документа")
+        logger.exception("Error processing document")
         await bot.edit_message_text(
-            f"❌ Произошла ошибка при обработке: {str(e)}",
+            f"❌ An error occurred during processing: {e}",
             chat_id=status_message.chat.id,
             message_id=status_message.message_id,
         )
@@ -133,55 +177,78 @@ async def handle_document(message: Message) -> None:
 
 @bot.message_handler(content_types=["text"])
 async def handle_text_query(message: Message) -> None:
+    """Processes search and informational text queries using the AI agent.
+
+    Args:
+        message: The received Telegram message.
+    """
     if not is_allowed(message):
         return
 
-    if not message.text or message.text.startswith("/"):
+    if not message.text or message.text.startswith("/") or not message.from_user:
         return
 
-    status_message = await bot.reply_to(message, "🧠 Запускаю поиск и анализ документов...")
+    status_message = await bot.reply_to(message, "🧠 Querying document archive...")
 
     try:
-        # Формулируем запрос для агента
-        prompt = f"""
-Пользователь спрашивает: "{message.text}"
+        user_token = Config.get_token_for_user(message.from_user.id)
 
-Используй MCP-инструменты Paperless-ngx для поиска информации в системе.
-Ответь на вопрос пользователя на русском языке.
-Будь точен и опирайся на найденные документы и метаданные.
-Если пользователь просит найти конкретный документ, найди его и пришли подробности.
-"""
+        mcp_env = {
+            "PAPERLESS_URL": Config.PAPERLESS_URL,
+            "PAPERLESS_API_TOKEN": user_token,
+        }
+        for k, v in os.environ.items():
+            if k not in mcp_env:
+                mcp_env[k] = v
 
-        agent_config = LocalAgentConfig(
-            system_instructions=(
-                "Ты — помощник по архиву документов в Латвии. "
-                "Используй Paperless MCP-инструменты для ответов на вопросы пользователя."
-            ),
-            capabilities=CapabilitiesConfig(allow_file_write=False, allow_command_execution=False),
-            workspace_dir=Config.WORKSPACE_PATH,
+        mcp_server = McpStdioServer(
+            name="paperless-ngx",
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-paperless-ngx"],
+            env=mcp_env,
         )
 
-        async with Agent(agent_config) as agent:
-            response = await agent.chat(prompt)
-            agent_report = ""
-            async for token in response:
-                agent_report += token
-
-        await bot.delete_message(
-            chat_id=status_message.chat.id,
-            message_id=status_message.message_id,
+        system_instructions = (
+            "You are a helpful assistant for a family document archive in Paperless-ngx. "
+            "Use the Paperless-ngx MCP tools to search and retrieve documents to answer "
+            "user queries. Provide accurate answers in Russian. Always base your replies "
+            "on the retrieved documents."
         )
 
-        if len(agent_report) > 4000:
-            for i in range(0, len(agent_report), 4000):
-                await bot.send_message(message.chat.id, agent_report[i : i + 4000])
-        else:
-            await bot.send_message(message.chat.id, agent_report)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent_config = LocalAgentConfig(
+                system_instructions=system_instructions,
+                mcp_servers=[mcp_server],
+                capabilities=CapabilitiesConfig(
+                    allow_file_write=False, allow_command_execution=False
+                ),
+                save_dir=temp_dir,
+            )
+
+            prompt = (
+                f"The user asks: '{message.text}'\nSearch the archive and reply to their question."
+            )
+
+            async with Agent(agent_config) as agent:
+                response = await agent.chat(prompt)
+                agent_report = ""
+                async for token in response:
+                    agent_report += token
+
+            await bot.delete_message(
+                chat_id=status_message.chat.id, message_id=status_message.message_id
+            )
+
+            if len(agent_report) > 4000:
+                for i in range(0, len(agent_report), 4000):
+                    await bot.send_message(message.chat.id, agent_report[i : i + 4000])
+            else:
+                await bot.send_message(message.chat.id, agent_report)
 
     except Exception as e:
-        logger.exception("Ошибка при обработке текстового запроса")
+        logger.exception("Error processing text query")
         await bot.edit_message_text(
-            f"❌ Произошла ошибка при поиске: {str(e)}",
+            f"❌ An error occurred during search: {e}",
             chat_id=status_message.chat.id,
             message_id=status_message.message_id,
         )
