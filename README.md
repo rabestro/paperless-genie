@@ -1,65 +1,95 @@
-# Telegram Archiver Bot for Paperless-ngx
+# Paperless Genie 🧞
 
-Бот для автоматического импорта, распознавания (OCR) и каталогизации семейных документов в Paperless-ngx с использованием **Google Antigravity SDK** (`google-antigravity`).
+An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity SDK** (`google-antigravity`).
 
-## 🚀 Описание работы
-1. Вы отправляете боту PDF-документ.
-2. Бот сохраняет файл локально в структуру папок вашего Obsidian-архива (разбивая по годам на основе имени файла).
-3. Бот запускает автономного агента Antigravity, передавая ему путь к новому файлу.
-4. Агент руководствуется правилами из `.agents/AGENTS.md` (в вашем воркспейсе):
-   - Ищет дубликаты в Paperless-ngx через MCP.
-   - Загружает новые документы.
-   - Корректно расставляет метаданные (Title, Created Date, Correspondent, Document Type).
-   - Задает семейные теги и удаляет автоматический тег `📥 Inbox`.
-   - Добавляет структурированную заметку с описанием.
-   - Переносит локальный файл в директорию `paperless/`.
-5. По завершении агент возвращает боту отчет, и бот пересылает его вам в Telegram.
+[![Quality Checks](https://github.com/rabestro/paperless-genie/actions/workflows/ci.yaml/badge.svg)](https://github.com/rabestro/paperless-genie/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🛠️ Установка и запуск на Linux-сервере
+`paperless-genie` acts as an intelligent, conversational interface to your Paperless-ngx document archive. It runs completely conversational and doesn't require mounting local files on the server. It supports multiple users, routing actions to Paperless-ngx dynamically using the corresponding user's API token.
 
-### 1. Требования
-* Установленный Python 3.10+
-* Установленный и запущенный Paperless-ngx с настроенным MCP-сервером.
-* Установленная утилита `google-antigravity`.
+---
 
-### 2. Клонирование репозитория и установка зависимостей
-```bash
-git clone https://github.com/rabestro/latvia-archiver-bot.git
-cd latvia-archiver-bot
-pip install -r requirements.txt
-```
+## 🚀 Key Features
 
-### 3. Переменные окружения
-Создайте файл `.env` в корневой папке проекта:
+* **Conversational Search & Query**: Ask questions about your archive in natural language (e.g., *"Find Rudolf Svirskis' passport"* or *"What contracts do we have from 1993?"*). The bot routes the query to an autonomous agent which uses Paperless-ngx MCP tools to find the answers.
+* **Intelligent Document Archiving**: Upload a PDF document directly in Telegram. The bot downloads it to a temporary directory and runs the Antigravity agent to analyze its contents. The agent suggests metadata (Title, Date, Correspondent, Type, Tags), uploads the document via the `post_document` MCP tool, waits for OCR, sets the metadata, and writes a detailed Russian note in Paperless.
+* **Multi-User Security & Permissions**: Mappings between Telegram User IDs and Paperless API Tokens ensure that each user can only search, see, and edit documents they have permissions to view in Paperless-ngx.
+* **Modern Developer Tooling**: Orchestrated using `uv`, `mise`, `ruff` for formatting/linting, `mypy` for static typing, and `pytest` for tests.
+
+---
+
+## 🛠️ Configuration & Setup
+
+### 1. Environment Variables
+
+Create a `.env` file in the root folder of the project:
+
 ```ini
-TELEGRAM_BOT_TOKEN="ваш_токен_телеграм_бота"
-ALLOWED_USER_IDS="ваш_telegram_id"
-WORKSPACE_PATH="/path/to/your/Obsidian/Latvia"
-GEMINI_API_KEY="ваш_api_ключ_google_ai_pro"
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+PAPERLESS_URL="https://your-paperless-instance.com"
+GEMINI_API_KEY="your_google_ai_studio_gemini_api_key"
+
+# JSON mapping between Telegram User IDs and their Paperless API Tokens
+PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_user_2"}'
 ```
 
-### 4. Настройка автозапуска (systemd)
-Создайте конфигурационный файл службы `/etc/systemd/system/latvia-bot.service`:
+### 2. Local Environment Setup
+
+Make sure you have `mise` installed on your machine.
+
+```bash
+# Install Python 3.13 and uv
+mise install
+
+# Install project dependencies
+uv sync --all-extras
+
+# Setup pre-commit hooks
+uv run pre-commit install
+```
+
+### 3. Available Tasks (via `mise`)
+
+* **Run the bot**: `mise run run`
+* **Format code**: `mise run format`
+* **Lint code**: `mise run lint`
+* **Type check**: `mise run mypy`
+* **Run tests**: `mise run test`
+
+---
+
+## 📋 Production Deployment (systemd)
+
+To run the bot in the background on your Linux server, create a systemd service file: `/etc/systemd/system/paperless-genie.service`
+
 ```ini
 [Unit]
-Description=Latvia Archiving Telegram Bot
+Description=Paperless Genie Telegram Bot
 After=network.target
 
 [Service]
 Type=simple
-User=your-username
-WorkingDirectory=/path/to/latvia-archiver-bot
-EnvironmentFile=/path/to/latvia-archiver-bot/.env
-ExecStart=/usr/bin/python3 bot.py
-Restart=on-failure
+User=your-linux-username
+WorkingDirectory=/home/your-linux-username/Repositories/paperless-genie
+ExecStart=/home/your-linux-username/Repositories/paperless-genie/.venv/bin/python -m paperless_genie
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/your-linux-username/Repositories/paperless-genie/.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Запустите и включите службу:
+Enable and start the service:
+
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl start latvia-bot.service
-sudo systemctl enable latvia-bot.service
+sudo systemctl start paperless-genie
+sudo systemctl enable paperless-genie
 ```
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
