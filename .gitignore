@@ -10,3 +10,4 @@ __pycache__/
 .agents/
 .venv/
 site/
+.idea/

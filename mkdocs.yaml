@@ -30,5 +30,6 @@ nav:
   - Installation & Setup:
       - Creating Telegram Bot: setup/telegram.md
       - Paperless-ngx Token: setup/paperless.md
+      - Gemini API Key: setup/gemini.md
       - Configuration: setup/configuration.md
   - Deployment: deployment.md
