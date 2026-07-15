@@ -36,6 +36,10 @@ dev = [
   "pytest-cov>=6.0.0",
   "pre-commit>=4.0.0",
 ]
+docs = [
+  "mkdocs>=1.6.0",
+  "mkdocs-material>=9.5.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/paperless_genie"]

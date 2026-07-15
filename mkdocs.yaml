@@ -1,0 +1,34 @@
+site_name: Paperless Genie
+site_description: AI-powered Telegram bot for Paperless-ngx
+site_author: Jegors Čemisovs
+repo_name: rabestro/paperless-genie
+repo_url: https://github.com/rabestro/paperless-genie
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Installation & Setup:
+      - Creating Telegram Bot: setup/telegram.md
+      - Paperless-ngx Token: setup/paperless.md
+      - Configuration: setup/configuration.md
+  - Deployment: deployment.md

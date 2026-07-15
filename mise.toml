@@ -3,9 +3,11 @@ python = "3.13"
 uv = "latest"
 
 [tasks]
-install = "uv pip install --editable .[dev]"
+install = "uv sync --all-extras"
 format = { run = "uv run ruff format src tests && uv run ruff check src tests --fix", description = "🎨 Formats code using Ruff" }
 lint = { run = "uv run ruff check src tests", description = "🔍 Lints code using Ruff" }
 mypy = { run = "uv run mypy src", description = "🧐 Checks static types with mypy" }
 test = { run = "uv run pytest", description = "🧪 Runs tests with pytest" }
 run = { run = "uv run python -m paperless_genie", description = "🚀 Runs the bot locally" }
+docs = { run = "uv run mkdocs serve", description = "📖 Serves documentation locally" }
+docs-build = { run = "uv run mkdocs build", description = "🏗️ Builds documentation" }

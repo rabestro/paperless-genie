@@ -8,3 +8,5 @@ __pycache__/
 /documents/
 /paperless/
 .agents/
+.venv/
+site/
