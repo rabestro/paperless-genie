@@ -12,6 +12,8 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    assignees:
+      - "rabestro"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -25,6 +27,8 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    assignees:
+      - "rabestro"
 
   - package-ecosystem: "pre-commit"
     directory: "/"
@@ -38,6 +42,8 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    assignees:
+      - "rabestro"
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -51,3 +57,5 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    assignees:
+      - "rabestro"
