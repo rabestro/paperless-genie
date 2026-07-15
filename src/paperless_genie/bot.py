@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import tempfile
 
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
@@ -10,6 +11,32 @@ from telebot.types import Message
 from paperless_genie.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
+_FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
+# Regex to strip bare file:// URLs
+_BARE_FILE_URL_RE = re.compile(r"file://\S+")
+
+
+def _clean_agent_response(text: str) -> str:
+    """Removes internal file:// links from the agent response.
+
+    The Antigravity agent sometimes appends file:// URLs that point to
+    temporary internal files. These links are meaningless in Telegram and
+    are stripped out here, keeping only the link label text.
+
+    Args:
+        text: The raw agent response text.
+
+    Returns:
+        Cleaned text suitable for sending to Telegram.
+    """
+    # Replace [Label](file://...) → Label
+    text = _FILE_LINK_RE.sub(r"\1", text)
+    # Remove any remaining bare file:// URLs
+    text = _BARE_FILE_URL_RE.sub("", text)
+    return text.strip()
+
 
 # Initialize the Telegram Bot
 bot = AsyncTeleBot(Config.TELEGRAM_BOT_TOKEN)
@@ -129,7 +156,15 @@ async def handle_document(message: Message) -> None:
                 "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
                 "7. Add a structured Russian note describing the document, "
                 "owner, and key details.\n"
-                "8. Output a final report in Russian describing what actions were done."
+                "8. Output a final report in Russian describing what actions were done.\n"
+                "IMPORTANT FORMATTING RULES:\n"
+                "- The response will be sent as a Telegram message. "
+                "Do NOT use markdown links with URLs. "
+                "Do NOT include any file:// or http:// links in the response.\n"
+                "- Refer to documents only by their title and date, for example: "
+                "'Паспорт Ивана Иванова (15.03.1993)'.\n"
+                "- Use plain text and emoji for formatting. "
+                "Avoid Markdown syntax like **bold** or [text](url)."
             )
 
             agent_config = LocalAgentConfig(
@@ -155,6 +190,8 @@ async def handle_document(message: Message) -> None:
                 agent_report = ""
                 async for token in response:
                     agent_report += token
+
+            agent_report = _clean_agent_response(agent_report)
 
             await bot.edit_message_text(
                 "✅ Processing completed!",
@@ -215,7 +252,15 @@ async def handle_text_query(message: Message) -> None:
             "You are a helpful assistant for a family document archive in Paperless-ngx. "
             "Use the Paperless-ngx MCP tools to search and retrieve documents to answer "
             "user queries. Provide accurate answers in Russian. Always base your replies "
-            "on the retrieved documents."
+            "on the retrieved documents.\n"
+            "IMPORTANT FORMATTING RULES:\n"
+            "- The response will be sent as a Telegram message. "
+            "Do NOT use markdown links with URLs. "
+            "Do NOT include any file:// or http:// links in the response.\n"
+            "- Refer to documents only by their title and date, for example: "
+            "'Паспорт Ивана Иванова (15.03.1993)'.\n"
+            "- Use plain text, numbered lists, and emoji. "
+            "Avoid Markdown syntax like **bold** or [text](url)."
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -238,6 +283,8 @@ async def handle_text_query(message: Message) -> None:
                 agent_report = ""
                 async for token in response:
                     agent_report += token
+
+            agent_report = _clean_agent_response(agent_report)
 
             await bot.delete_message(
                 chat_id=status_message.chat.id, message_id=status_message.message_id
