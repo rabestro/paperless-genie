@@ -139,6 +139,7 @@ async def handle_document(message: Message) -> None:
                     allow_file_write=True, allow_command_execution=True
                 ),
                 save_dir=temp_dir,
+                model=Config.GEMINI_MODEL,
             )
 
             # Formulate the prompt for the agent
@@ -225,6 +226,7 @@ async def handle_text_query(message: Message) -> None:
                     allow_file_write=False, allow_command_execution=False
                 ),
                 save_dir=temp_dir,
+                model=Config.GEMINI_MODEL,
             )
 
             prompt = (

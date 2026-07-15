@@ -11,6 +11,7 @@ class Config:
 
     TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     PAPERLESS_URL: str = os.environ.get("PAPERLESS_URL", "")
+    GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # Mapping of Telegram user IDs to Paperless API tokens
     USER_TOKENS: dict[int, str] = {}

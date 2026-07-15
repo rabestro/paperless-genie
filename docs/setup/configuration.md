@@ -11,6 +11,7 @@ All configurations in `paperless-genie` are set using environment variables. The
 | `TELEGRAM_BOT_TOKEN` | Token obtained from `@BotFather`. | Yes | `123456789:ABCdefGhI...` |
 | `PAPERLESS_URL` | Base URL of your Paperless-ngx instance. | Yes | `https://paperless.example.com` |
 | `GEMINI_API_KEY` | API Key from Google AI Studio. | Yes | `AIzaSyD...` |
+| `GEMINI_MODEL` | Gemini model to use. Defaults to `gemini-3.1-flash-lite`. | No | `gemini-3.1-flash-lite` |
 | `PAPERLESS_USER_TOKENS` | JSON mapping of Telegram User IDs to Paperless API Tokens. | Yes | See mapping section below. |
 
 ---
