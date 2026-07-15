@@ -1,5 +1,5 @@
 # Use Python slim base image
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Install system dependencies and Node.js (required to run Node-based MCP servers via npx)
 RUN apt-get update && apt-get install -y --no-install-recommends \
