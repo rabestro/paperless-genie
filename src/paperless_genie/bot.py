@@ -6,6 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+import httpx
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.types import McpStdioServer
 from telebot.async_telebot import AsyncTeleBot
@@ -120,11 +121,11 @@ async def send_welcome(message: Message) -> None:
         message,
         "🧞 Welcome! I am your AI assistant for Paperless-ngx.\n\n"
         "Features:\n"
-        "1. Archive documents: Send me a PDF file, and I will check the database, "
-        "upload it, set proper metadata (title, correspondent, tags, type), and "
-        "add a detailed note.\n"
+        "1. Archive documents: Send me a PDF file, and I will check the "
+        "database, upload it, set proper metadata, and add a detailed note.\n"
         "2. Search and Query: Ask me any questions about your documents "
-        "(e.g., 'Find John Doe passport' or 'List all contracts from 1993').\n\n"
+        "(e.g., 'Find John Doe passport' or 'List all contracts from 1993').\n"
+        "3. Download a document: /get <id> — sends the PDF from the archive.\n\n"
         "I remember our conversation — use /clear to start a new topic.",
     )
 
@@ -140,6 +141,129 @@ async def handle_clear(message: Message) -> None:
         return
     _user_histories[message.from_user.id].clear()
     await bot.reply_to(message, "🗑 Conversation history cleared. Starting fresh!")
+
+
+async def _fetch_document_info(doc_id: int, api_token: str) -> dict[str, object] | None:
+    """Fetches document metadata from the Paperless-ngx REST API.
+
+    Args:
+        doc_id: The Paperless document ID.
+        api_token: The user's Paperless API token.
+
+    Returns:
+        Parsed JSON dict on success, or None if the document was not found.
+    """
+    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/{doc_id}/"
+    headers = {"Authorization": f"Token {api_token}"}
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(url, headers=headers)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        result: dict[str, object] = resp.json()
+        return result
+
+
+async def _download_document_pdf(doc_id: int, api_token: str) -> bytes:
+    """Downloads the original PDF of a document from Paperless-ngx.
+
+    Args:
+        doc_id: The Paperless document ID.
+        api_token: The user's Paperless API token.
+
+    Returns:
+        Raw PDF bytes.
+
+    Raises:
+        httpx.HTTPStatusError: If the download request fails.
+    """
+    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/{doc_id}/download/"
+    headers = {"Authorization": f"Token {api_token}"}
+    async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
+        pdf_bytes: bytes = resp.content
+        return pdf_bytes
+
+
+@bot.message_handler(commands=["get"])
+async def handle_get(message: Message) -> None:
+    """Downloads a document by its Paperless ID and sends it as a PDF file.
+
+    Usage: /get <document_id>
+
+    Args:
+        message: The received Telegram message.
+    """
+    if not is_allowed(message) or not message.from_user:
+        return
+
+    parts = (message.text or "").strip().split()
+    if len(parts) != 2 or not parts[1].isdigit():  # noqa: PLR2004
+        await bot.reply_to(
+            message,
+            "⚠️ Usage: /get <document_id>\nExample: /get 42",
+        )
+        return
+
+    doc_id = int(parts[1])
+    status_message = await bot.reply_to(message, f"📄 Fetching document #{doc_id}...")
+
+    try:
+        user_token = Config.get_token_for_user(message.from_user.id)
+
+        # 1. Get document metadata (title + filename)
+        info = await _fetch_document_info(doc_id, user_token)
+        if info is None:
+            await bot.edit_message_text(
+                f"❌ Document #{doc_id} not found in the archive.",
+                chat_id=status_message.chat.id,
+                message_id=status_message.message_id,
+            )
+            return
+
+        title = str(info.get("title") or f"document_{doc_id}")
+        original_name = str(info.get("original_file_name") or f"{doc_id}.pdf")
+        created_date = str(info.get("created_date") or "")
+        caption = f"📄 {title}"
+        if created_date:
+            caption += f"\n📅 {created_date}"
+
+        # 2. Download the PDF bytes
+        await bot.edit_message_text(
+            f"⬇️ Downloading {title}...",
+            chat_id=status_message.chat.id,
+            message_id=status_message.message_id,
+        )
+        pdf_bytes = await _download_document_pdf(doc_id, user_token)
+
+        # 3. Send the PDF to the chat
+        await bot.delete_message(
+            chat_id=status_message.chat.id,
+            message_id=status_message.message_id,
+        )
+        await bot.send_document(
+            message.chat.id,
+            document=(original_name, pdf_bytes, "application/pdf"),
+            caption=caption,
+        )
+        logger.info(
+            "Sent document #%d (%s) to user %d", doc_id, original_name, message.from_user.id
+        )
+
+    except KeyError:
+        await bot.edit_message_text(
+            "❌ You are not authorized to use this bot.",
+            chat_id=status_message.chat.id,
+            message_id=status_message.message_id,
+        )
+    except Exception as e:
+        logger.exception("Error fetching document #%d", doc_id)
+        await bot.edit_message_text(
+            f"❌ Failed to fetch document #{doc_id}: {e}",
+            chat_id=status_message.chat.id,
+            message_id=status_message.message_id,
+        )
 
 
 @bot.message_handler(content_types=["document"])
