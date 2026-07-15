@@ -308,7 +308,7 @@ async def handle_get(message: Message) -> None:
         )
         await bot.send_document(
             message.chat.id,
-            document=(original_name, pdf_bytes, "application/pdf"),
+            document=(original_name, pdf_bytes),
             caption=caption,
         )
         logger.info(
@@ -505,7 +505,7 @@ async def handle_doc_button(call: CallbackQuery) -> None:
 
         await bot.send_document(
             call.message.chat.id,
-            document=(original_name, pdf_bytes, "application/pdf"),
+            document=(original_name, pdf_bytes),
             caption=caption,
         )
         logger.info(
