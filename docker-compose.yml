@@ -1,0 +1,10 @@
+services:
+  bot:
+    build: .
+    container_name: paperless-genie
+    restart: always
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - PAPERLESS_URL=${PAPERLESS_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PAPERLESS_USER_TOKENS=${PAPERLESS_USER_TOKENS}

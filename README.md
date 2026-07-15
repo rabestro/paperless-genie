@@ -58,6 +58,26 @@ uv run pre-commit install
 
 ---
 
+## 🐳 Docker Deployment (Recommended)
+
+You can run the bot in the background using Docker and Docker Compose. This packages Node.js automatically so the bot can execute Node-based MCP servers.
+
+### 1. Build and Start Container
+
+Make sure you have created your `.env` file, then run:
+
+```bash
+docker compose up -d --build
+```
+
+### 2. View Logs
+
+```bash
+docker compose logs -f
+```
+
+---
+
 ## 📋 Production Deployment (systemd)
 
 To run the bot in the background on your Linux server, create a systemd service file: `/etc/systemd/system/paperless-genie.service`
