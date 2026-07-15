@@ -2,6 +2,9 @@ import logging
 import os
 import re
 import tempfile
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import ClassVar
 
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.types import McpStdioServer
@@ -38,6 +41,56 @@ def _clean_agent_response(text: str) -> str:
     return text.strip()
 
 
+@dataclass
+class ConversationHistory:
+    """Stores the recent conversation turns for a single user.
+
+    Each turn is a (user_message, bot_reply) pair. Older turns are dropped
+    once *max_turns* is exceeded so token usage stays bounded.
+    """
+
+    MAX_TURNS: ClassVar[int] = 10
+
+    turns: list[tuple[str, str]] = field(default_factory=list)
+
+    def add(self, user_msg: str, bot_reply: str) -> None:
+        """Appends a new turn and trims the oldest if needed."""
+        self.turns.append((user_msg, bot_reply))
+        if len(self.turns) > self.MAX_TURNS:
+            self.turns.pop(0)
+
+    def build_context(self, current_user_msg: str) -> str:
+        """Returns a prompt string that includes history + the current message.
+
+        Args:
+            current_user_msg: The latest message from the user.
+
+        Returns:
+            Full prompt text with prior conversation context prepended.
+        """
+        if not self.turns:
+            return f"User: {current_user_msg}"
+
+        lines: list[str] = ["Below is the conversation history (oldest first):"]
+        for user, bot in self.turns:
+            lines.append(f"User: {user}")
+            lines.append(f"Assistant: {bot}")
+        lines.append("")
+        lines.append(f"User: {current_user_msg}")
+        lines.append(
+            "Now answer the last User message, taking the conversation history into account."
+        )
+        return "\n".join(lines)
+
+    def clear(self) -> None:
+        """Resets the conversation history."""
+        self.turns.clear()
+
+
+# Per-user conversation history (lives as long as the bot process is running)
+_user_histories: dict[int, ConversationHistory] = defaultdict(ConversationHistory)
+
+
 # Initialize the Telegram Bot
 bot = AsyncTeleBot(Config.TELEGRAM_BOT_TOKEN)
 
@@ -66,15 +119,27 @@ async def send_welcome(message: Message) -> None:
     await bot.reply_to(
         message,
         "🧞 Welcome! I am your AI assistant for Paperless-ngx.\n\n"
-        "**Features:**\n"
-        "1. **Archive documents:** Send me a PDF file, and I will check the database, "
+        "Features:\n"
+        "1. Archive documents: Send me a PDF file, and I will check the database, "
         "upload it, set proper metadata (title, correspondent, tags, type), and "
         "add a detailed note.\n"
-        "2. **Search and Query:** Ask me any questions about your documents "
-        "(e.g., 'Find John Doe's passport' or 'List all contracts from 1993').\n\n"
-        "All actions are executed using your personal credentials and permissions.",
-        parse_mode="Markdown",
+        "2. Search and Query: Ask me any questions about your documents "
+        "(e.g., 'Find John Doe passport' or 'List all contracts from 1993').\n\n"
+        "I remember our conversation — use /clear to start a new topic.",
     )
+
+
+@bot.message_handler(commands=["clear"])
+async def handle_clear(message: Message) -> None:
+    """Clears the conversation history for the current user.
+
+    Args:
+        message: The received Telegram message.
+    """
+    if not is_allowed(message) or not message.from_user:
+        return
+    _user_histories[message.from_user.id].clear()
+    await bot.reply_to(message, "🗑 Conversation history cleared. Starting fresh!")
 
 
 @bot.message_handler(content_types=["document"])
@@ -274,9 +339,8 @@ async def handle_text_query(message: Message) -> None:
                 model=Config.GEMINI_MODEL,
             )
 
-            prompt = (
-                f"The user asks: '{message.text}'\nSearch the archive and reply to their question."
-            )
+            history = _user_histories[message.from_user.id]
+            prompt = history.build_context(message.text)
 
             async with Agent(agent_config) as agent:
                 response = await agent.chat(prompt)
@@ -285,6 +349,9 @@ async def handle_text_query(message: Message) -> None:
                     agent_report += token
 
             agent_report = _clean_agent_response(agent_report)
+
+            # Persist the turn so the next message can reference it
+            history.add(message.text, agent_report)
 
             await bot.delete_message(
                 chat_id=status_message.chat.id, message_id=status_message.message_id
