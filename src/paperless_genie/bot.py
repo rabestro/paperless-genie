@@ -10,7 +10,7 @@ import httpx
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.types import McpStdioServer
 from telebot.async_telebot import AsyncTeleBot
-from telebot.types import Message
+from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from paperless_genie.config import Config
 
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 _FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
 # Regex to strip bare file:// URLs
 _BARE_FILE_URL_RE = re.compile(r"file://\S+")
+# Regex to find document ID tags that the agent embeds, e.g. [#42]
+_DOC_TAG_RE = re.compile(r"\[#(\d+)\]")
 
 
 def _clean_agent_response(text: str) -> str:
@@ -40,6 +42,68 @@ def _clean_agent_response(text: str) -> str:
     # Remove any remaining bare file:// URLs
     text = _BARE_FILE_URL_RE.sub("", text)
     return text.strip()
+
+
+def _build_doc_keyboard(
+    doc_ids: list[int],
+) -> InlineKeyboardMarkup | None:
+    """Builds an InlineKeyboardMarkup with one download button per document.
+
+    Buttons are arranged in rows of three.
+
+    Args:
+        doc_ids: Ordered list of unique Paperless document IDs found in the text.
+
+    Returns:
+        InlineKeyboardMarkup ready to attach to a message, or None if no IDs.
+    """
+    if not doc_ids:
+        return None
+    keyboard = InlineKeyboardMarkup(row_width=3)
+    buttons = [
+        InlineKeyboardButton(text=f"📥 #{doc_id}", callback_data=f"get_doc:{doc_id}")
+        for doc_id in doc_ids
+    ]
+    keyboard.add(*buttons)
+    return keyboard
+
+
+async def _send_with_doc_buttons(
+    chat_id: int,
+    text: str,
+) -> None:
+    """Sends a text message and attaches download buttons for any [#ID] tags.
+
+    The [#ID] markers are stripped from the visible text before sending.
+    If the text exceeds 4000 characters it is split into chunks; buttons are
+    attached only to the last chunk.
+
+    Args:
+        chat_id: The Telegram chat to send to.
+        text: Agent response text, possibly containing [#ID] markers.
+    """
+    # Extract unique doc IDs preserving order of first appearance
+    seen: set[int] = set()
+    doc_ids: list[int] = []
+    for m in _DOC_TAG_RE.finditer(text):
+        doc_id = int(m.group(1))
+        if doc_id not in seen:
+            seen.add(doc_id)
+            doc_ids.append(doc_id)
+
+    # Strip [#ID] markers from the visible text
+    clean_text = _DOC_TAG_RE.sub("", text).strip()
+
+    keyboard = _build_doc_keyboard(doc_ids)
+
+    if len(clean_text) > 4000:  # noqa: PLR2004
+        chunks = [clean_text[i : i + 4000] for i in range(0, len(clean_text), 4000)]
+        for chunk in chunks[:-1]:
+            await bot.send_message(chat_id, chunk)
+        # Attach buttons only to the last chunk
+        await bot.send_message(chat_id, chunks[-1], reply_markup=keyboard)
+    else:
+        await bot.send_message(chat_id, clean_text, reply_markup=keyboard)
 
 
 @dataclass
@@ -403,6 +467,62 @@ async def handle_document(message: Message) -> None:
         )
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("get_doc:"))
+async def handle_doc_button(call: CallbackQuery) -> None:
+    """Handles inline button presses that request a document download.
+
+    The callback_data format is ``get_doc:<document_id>``.
+
+    Args:
+        call: The incoming callback query from Telegram.
+    """
+    if not call.from_user or call.from_user.id not in Config.USER_TOKENS:
+        await bot.answer_callback_query(call.id, "⛔ Not authorized.")
+        return
+
+    doc_id = int(call.data.split(":", 1)[1])
+    await bot.answer_callback_query(call.id, f"⬇️ Fetching document #{doc_id}…")
+
+    try:
+        user_token = Config.get_token_for_user(call.from_user.id)
+
+        info = await _fetch_document_info(doc_id, user_token)
+        if info is None:
+            await bot.send_message(
+                call.message.chat.id,
+                f"❌ Document #{doc_id} not found in the archive.",
+            )
+            return
+
+        title = str(info.get("title") or f"document_{doc_id}")
+        original_name = str(info.get("original_file_name") or f"{doc_id}.pdf")
+        created_date = str(info.get("created_date") or "")
+        caption = f"📄 {title}"
+        if created_date:
+            caption += f"\n📅 {created_date}"
+
+        pdf_bytes = await _download_document_pdf(doc_id, user_token)
+
+        await bot.send_document(
+            call.message.chat.id,
+            document=(original_name, pdf_bytes, "application/pdf"),
+            caption=caption,
+        )
+        logger.info(
+            "Sent document #%d (%s) via inline button to user %d",
+            doc_id,
+            original_name,
+            call.from_user.id,
+        )
+
+    except Exception as e:
+        logger.exception("Error fetching document #%d via inline button", doc_id)
+        await bot.send_message(
+            call.message.chat.id,
+            f"❌ Failed to fetch document #{doc_id}: {e}",
+        )
+
+
 @bot.message_handler(content_types=["text"])
 async def handle_text_query(message: Message) -> None:
     """Processes search and informational text queries using the AI agent.
@@ -446,8 +566,10 @@ async def handle_text_query(message: Message) -> None:
             "- The response will be sent as a Telegram message. "
             "Do NOT use markdown links with URLs. "
             "Do NOT include any file:// or http:// links in the response.\n"
-            "- Refer to documents only by their title and date, for example: "
-            "'Паспорт Ивана Иванова (15.03.1993)'.\n"
+            "- After every document title or description, append its Paperless ID "
+            "in the format [#ID], for example: "
+            "'Паспорт Ивана Иванова (15.03.1993) [#42]'. "
+            "This tag is used by the bot to build download buttons automatically.\n"
             "- Use plain text, numbered lists, and emoji. "
             "Avoid Markdown syntax like **bold** or [text](url)."
         )
@@ -481,11 +603,7 @@ async def handle_text_query(message: Message) -> None:
                 chat_id=status_message.chat.id, message_id=status_message.message_id
             )
 
-            if len(agent_report) > 4000:
-                for i in range(0, len(agent_report), 4000):
-                    await bot.send_message(message.chat.id, agent_report[i : i + 4000])
-            else:
-                await bot.send_message(message.chat.id, agent_report)
+            await _send_with_doc_buttons(message.chat.id, agent_report)
 
     except Exception as e:
         logger.exception("Error processing text query")
