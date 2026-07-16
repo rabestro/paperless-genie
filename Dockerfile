@@ -1,6 +1,15 @@
 # Use Python slim base image
 FROM python:3.14-slim
 
+# OCI standard image labels (static metadata)
+# Dynamic labels — version, created, revision — are injected by CI (docker/metadata-action)
+LABEL org.opencontainers.image.title="Paperless Genie" \
+      org.opencontainers.image.description="AI-powered Telegram bot for Paperless-ngx" \
+      org.opencontainers.image.authors="Jegors Čemisovs <jegors.cemisovs@gmail.com>" \
+      org.opencontainers.image.url="https://github.com/rabestro/paperless-genie" \
+      org.opencontainers.image.source="https://github.com/rabestro/paperless-genie" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
 # Install system dependencies and Node.js (required to run Node-based MCP servers via npx)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
