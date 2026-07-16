@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create an unprivileged user to run the bot as — it needs no elevated
 # privileges. Created early so this layer is cache-independent of source
-# changes; ownership of /app is handed over right before the USER switch.
+# changes.
 RUN groupadd --system app \
     && useradd --system --gid app --create-home --home-dir /home/app --shell /usr/sbin/nologin app
 
@@ -37,27 +37,26 @@ RUN npm install -g "@baruchiro/paperless-mcp@${PAPERLESS_MCP_VERSION}" \
 # Install uv for fast dependency management (version pinned for reproducible builds)
 COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /bin/
 
-# Set working directory
+# Create the working directory owned by the unprivileged user and switch to
+# it now, before any application files are copied in — every COPY/RUN below
+# then runs as that user directly, instead of needing a `chown -R` afterward
+# that would otherwise copy-up the whole dependency tree into a new layer.
+RUN mkdir /app && chown app:app /app
 WORKDIR /app
+ENV HOME=/home/app
+USER app
 
 # Copy dependency configuration files
-COPY pyproject.toml uv.lock README.md ./
+COPY --chown=app:app pyproject.toml uv.lock README.md ./
 
 # Install python dependencies (cached layer)
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy project source code
-COPY src/ ./src/
+COPY --chown=app:app src/ ./src/
 
 # Install the project package itself
 RUN uv sync --frozen --no-dev
-
-# Hand ownership of the app directory to the unprivileged user and switch to
-# it for runtime. HOME is set only now so the build steps above (still root)
-# don't leave root-owned files under the app user's home directory.
-RUN chown -R app:app /app
-ENV HOME=/home/app
-USER app
 
 # Set entry point to launch the bot
 CMD ["uv", "run", "python", "-m", "paperless_genie"]
