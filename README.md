@@ -121,6 +121,16 @@ sudo systemctl enable paperless-genie
 
 ---
 
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the
+development setup, check suite, and workflow. First-time contributors sign the
+[Contributor License Agreement](CLA.md) as part of their first pull request. We follow
+the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md); security issues go
+through [private vulnerability reporting](SECURITY.md), never public issues.
+
+---
+
 ## 📝 License
 
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
