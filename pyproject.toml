@@ -26,6 +26,7 @@ dependencies = [
   "google-antigravity>=0.1.0",
   "httpx>=0.28.0",
   "python-dotenv>=1.0",
+  "pydantic>=2",
 ]
 
 [project.urls]
@@ -44,6 +45,8 @@ dev = [
   "mypy>=1.14.0",
   "pytest>=8.3.0",
   "pytest-cov>=6.0.0",
+  "pytest-asyncio>=0.24.0",
+  "respx>=0.21.0",
   "pre-commit>=4.0.0",
 ]
 docs = [
@@ -53,6 +56,10 @@ docs = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/paperless_genie"]
+
+[tool.pytest.ini_options]
+# Treat every `async def test_*` as an asyncio test without a per-test marker.
+asyncio_mode = "auto"
 
 [tool.ruff]
 target-version = "py314"
@@ -88,7 +95,8 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 # D1: test names are the documentation; docstrings on every test add noise.
-"tests/*" = ["S101", "S105", "D1"]
+# PLR2004: literal expected values in assertions are the point of a test.
+"tests/*" = ["S101", "S105", "D1", "PLR2004"]
 
 [tool.mypy]
 strict = true

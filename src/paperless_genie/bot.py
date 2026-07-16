@@ -1,6 +1,5 @@
 """Telegram bot handlers and the Paperless-ngx archiving agent."""
 
-import asyncio
 import logging
 import os
 import re
@@ -9,7 +8,6 @@ import tempfile
 from collections import defaultdict
 from datetime import UTC, datetime
 
-import httpx
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.types import McpStdioServer
 from telebot.async_telebot import AsyncTeleBot
@@ -17,15 +15,7 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from paperless_genie.config import Config
 from paperless_genie.conversation import ConversationHistory
-
-
-class DuplicateDocumentError(Exception):
-    """Raised when a document being uploaded is identified as a duplicate."""
-
-    def __init__(self, doc_id: int):
-        super().__init__(f"Duplicate of document #{doc_id}")
-        self.doc_id = doc_id
-
+from paperless_genie.paperless import DuplicateDocumentError, PaperlessClient
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +26,6 @@ SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
 
 # Telegram caps messages at 4096 characters; 4000 leaves margin for edits/ellipsis.
 _TELEGRAM_MESSAGE_LIMIT = 4000
-# Give up polling the tasks API after this many consecutive failures.
-_MAX_CONSECUTIVE_POLL_FAILURES = 5
 
 # Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
 _FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
@@ -207,49 +195,6 @@ async def handle_clear(message: Message) -> None:
     await bot.reply_to(message, "🗑 Conversation history cleared. Starting fresh!")
 
 
-async def _fetch_document_info(doc_id: int, api_token: str) -> dict[str, object] | None:
-    """Fetches document metadata from the Paperless-ngx REST API.
-
-    Args:
-        doc_id: The Paperless document ID.
-        api_token: The user's Paperless API token.
-
-    Returns:
-        Parsed JSON dict on success, or None if the document was not found.
-    """
-    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/{doc_id}/"
-    headers = {"Authorization": f"Token {api_token}"}
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, headers=headers)
-        if resp.status_code == httpx.codes.NOT_FOUND:
-            return None
-        resp.raise_for_status()
-        result: dict[str, object] = resp.json()
-        return result
-
-
-async def _download_document_pdf(doc_id: int, api_token: str) -> bytes:
-    """Downloads the original PDF of a document from Paperless-ngx.
-
-    Args:
-        doc_id: The Paperless document ID.
-        api_token: The user's Paperless API token.
-
-    Returns:
-        Raw PDF bytes.
-
-    Raises:
-        httpx.HTTPStatusError: If the download request fails.
-    """
-    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/{doc_id}/download/"
-    headers = {"Authorization": f"Token {api_token}"}
-    async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-        resp = await client.get(url, headers=headers)
-        resp.raise_for_status()
-        pdf_bytes: bytes = resp.content
-        return pdf_bytes
-
-
 @bot.message_handler(commands=["get"])
 async def handle_get(message: Message) -> None:
     """Downloads a document by its Paperless ID and sends it as a PDF file.
@@ -275,9 +220,10 @@ async def handle_get(message: Message) -> None:
 
     try:
         user_token = Config.get_token_for_user(message.from_user.id)
+        client = PaperlessClient(Config.PAPERLESS_URL, user_token)
 
         # 1. Get document metadata (title + filename)
-        info = await _fetch_document_info(doc_id, user_token)
+        info = await client.fetch_document_info(doc_id)
         if info is None:
             await bot.edit_message_text(
                 f"❌ Document #{doc_id} not found in the archive.",
@@ -286,9 +232,9 @@ async def handle_get(message: Message) -> None:
             )
             return
 
-        title = str(info.get("title") or f"document_{doc_id}")
-        original_name = str(info.get("original_file_name") or f"{doc_id}.pdf")
-        created_date = str(info.get("created_date") or "")
+        title = info.title or f"document_{doc_id}"
+        original_name = info.original_file_name or f"{doc_id}.pdf"
+        created_date = info.created_date or ""
         caption = f"📄 {title}"
         if created_date:
             caption += f"\n📅 {created_date}"
@@ -299,7 +245,7 @@ async def handle_get(message: Message) -> None:
             chat_id=status_message.chat.id,
             message_id=status_message.message_id,
         )
-        pdf_bytes = await _download_document_pdf(doc_id, user_token)
+        pdf_bytes = await client.download_pdf(doc_id)
 
         # 3. Send the PDF to the chat
         await bot.delete_message(
@@ -328,130 +274,6 @@ async def handle_get(message: Message) -> None:
             chat_id=status_message.chat.id,
             message_id=status_message.message_id,
         )
-
-
-async def _upload_and_wait_for_ocr(  # noqa: PLR0912, PLR0915 — split planned with the bot.py refactor
-    *,
-    file_bytes: bytes,
-    file_name: str,
-    user_token: str,
-    chat_id: int,
-    status_message_id: int,
-) -> int:
-    """Uploads document to Paperless-ngx and polls until OCR is complete.
-
-    Returns:
-        The created document ID.
-
-    Raises:
-        DuplicateDocumentError: If the document is identified as a duplicate.
-        ValueError: On other processing failures.
-        TimeoutError: On timeout.
-    """
-    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/post_document/"
-    headers = {"Authorization": f"Token {user_token}"}
-    files = {"document": (file_name, file_bytes)}
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        await bot.edit_message_text(
-            "📤 Uploading document to Paperless-ngx...",
-            chat_id=chat_id,
-            message_id=status_message_id,
-        )
-        response = await client.post(url, headers=headers, files=files)
-        response.raise_for_status()
-
-        # Parse task ID (which is sometimes a raw JSON string
-        # e.g. "uuid" or dict {"task_id": "uuid"}). `data or ""` keeps a JSON
-        # null falsy so the guard below rejects it instead of str(None) -> "None".
-        try:
-            data = response.json()
-            task_id = data.get("task_id") if isinstance(data, dict) else str(data or "")
-        except Exception:
-            task_id = response.text.strip().strip('"')
-
-        if not task_id:
-            raise ValueError(f"Failed to retrieve task ID. Response: {response.text}")
-
-        # Poll the tasks endpoint
-        tasks_url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/tasks/?task_id={task_id}"
-
-        await bot.edit_message_text(
-            "⚙️ Document queued. Waiting for OCR & processing...",
-            chat_id=chat_id,
-            message_id=status_message_id,
-        )
-
-        max_wait = 180  # 3 minutes maximum wait time
-        start_time = datetime.now(UTC)
-
-        consecutive_failures = 0
-        while (datetime.now(UTC) - start_time).total_seconds() < max_wait:
-            await asyncio.sleep(3)
-            try:
-                task_response = await client.get(tasks_url, headers=headers)
-                task_response.raise_for_status()
-                task_data = task_response.json()
-                consecutive_failures = 0  # reset on success
-            except (httpx.HTTPError, ValueError) as err:
-                consecutive_failures += 1
-                logger.warning(
-                    "Transient error polling tasks API (failure %d): %s",
-                    consecutive_failures,
-                    err,
-                )
-                if consecutive_failures >= _MAX_CONSECUTIVE_POLL_FAILURES:
-                    raise ValueError(
-                        f"Failed to poll task status after "
-                        f"{_MAX_CONSECUTIVE_POLL_FAILURES} attempts: {err}"
-                    ) from err
-                continue
-
-            # Handle list or dict results
-            if isinstance(task_data, dict) and "results" in task_data:
-                tasks = task_data["results"]
-            elif isinstance(task_data, list):
-                tasks = task_data
-            else:
-                tasks = []
-
-            if not tasks:
-                # Task not found in tasks list yet
-                continue
-
-            task = tasks[0]
-            status = str(task.get("status") or "").upper()
-
-            if status == "SUCCESS":
-                related_doc = task.get("related_document")
-                if related_doc is not None:
-                    return int(related_doc)
-                # Fallback: parse from result text
-                result_text = str(task.get("result") or "")
-                match = re.search(r"document id (\d+) created", result_text)
-                if match:
-                    return int(match.group(1))
-                raise ValueError(
-                    f"Task succeeded but related_document ID not found. Result: {result_text}"
-                )
-
-            if status in ("FAILED", "FAILURE"):
-                result_text = str(task.get("result") or "")
-                if (
-                    "is a duplicate of" in result_text.lower()
-                    or "duplicate" in result_text.lower()
-                ):
-                    # Parse document ID from result, e.g. "duplicate of #416"
-                    match = re.search(r"#(\d+)", result_text)
-                    if match:
-                        raise DuplicateDocumentError(doc_id=int(match.group(1)))
-                    # Fallback pattern
-                    match = re.search(r"id\s+(\d+)", result_text)
-                    if match:
-                        raise DuplicateDocumentError(doc_id=int(match.group(1)))
-                raise ValueError(f"Document processing failed: {result_text}")
-
-        raise TimeoutError("Timed out waiting for document processing / OCR to complete.")
 
 
 # Process plumbing forwarded to the MCP subprocess in addition to the
@@ -561,21 +383,21 @@ async def _archive_file(
         chat_id: Telegram chat to send status and report messages to.
         status_message_id: ID of the 'processing…' status message to edit.
     """
+    client = PaperlessClient(Config.PAPERLESS_URL, user_token)
+
+    async def _report(status: str) -> None:
+        await bot.edit_message_text(status, chat_id=chat_id, message_id=status_message_id)
+
     try:
-        # 1. Upload to Paperless-ngx and wait for OCR in python
-        doc_id = await _upload_and_wait_for_ocr(
+        # 1. Upload to Paperless-ngx and wait for OCR; progress goes to the
+        # status message via the _report callback.
+        doc_id = await client.upload_and_wait_for_ocr(
             file_bytes=file_bytes,
             file_name=file_name,
-            user_token=user_token,
-            chat_id=chat_id,
-            status_message_id=status_message_id,
+            on_status=_report,
         )
 
-        await bot.edit_message_text(
-            "🧠 Analyzing the document with AI...",
-            chat_id=chat_id,
-            message_id=status_message_id,
-        )
+        await _report("🧠 Analyzing the document with AI...")
 
         mcp_server = _build_mcp_server(user_token)
 
@@ -654,10 +476,10 @@ async def _archive_file(
     except DuplicateDocumentError as e:
         logger.info("Duplicate document detected for file %s: ID %d", file_name, e.doc_id)
         try:
-            info = await _fetch_document_info(e.doc_id, user_token)
+            info = await client.fetch_document_info(e.doc_id)
             if info:
-                title = info.get("title") or "Untitled"
-                created = info.get("created") or info.get("created_date") or ""
+                title = info.title or "Untitled"
+                created = info.created or info.created_date or ""
 
                 msg = (
                     f"⚠️ This document already exists in the archive as #{e.doc_id}:\n\n📄 {title}"
@@ -807,8 +629,9 @@ async def handle_doc_button(call: CallbackQuery) -> None:
 
     try:
         user_token = Config.get_token_for_user(call.from_user.id)
+        client = PaperlessClient(Config.PAPERLESS_URL, user_token)
 
-        info = await _fetch_document_info(doc_id, user_token)
+        info = await client.fetch_document_info(doc_id)
         if info is None:
             await bot.send_message(
                 chat_id,
@@ -816,14 +639,14 @@ async def handle_doc_button(call: CallbackQuery) -> None:
             )
             return
 
-        title = str(info.get("title") or f"document_{doc_id}")
-        original_name = str(info.get("original_file_name") or f"{doc_id}.pdf")
-        created_date = str(info.get("created_date") or "")
+        title = info.title or f"document_{doc_id}"
+        original_name = info.original_file_name or f"{doc_id}.pdf"
+        created_date = info.created_date or ""
         caption = f"📄 {title}"
         if created_date:
             caption += f"\n📅 {created_date}"
 
-        pdf_bytes = await _download_document_pdf(doc_id, user_token)
+        pdf_bytes = await client.download_pdf(doc_id)
 
         await bot.send_document(
             chat_id,
