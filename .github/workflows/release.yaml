@@ -57,17 +57,23 @@ jobs:
           echo "tag=${new_tag}"         >> "$GITHUB_OUTPUT"
           echo "prev_tag=${prev_tag}"   >> "$GITHUB_OUTPUT"
 
-      - name: Update version in pyproject.toml
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Update version in pyproject.toml and uv.lock
         run: |
           sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
           echo "pyproject.toml after update:"
           grep '^version' pyproject.toml
+          uv lock
 
       - name: Commit version bump
         run: |
-          git add pyproject.toml
+          git add pyproject.toml uv.lock
           if git diff --cached --quiet; then
-            echo "Version in pyproject.toml is already ${{ steps.version.outputs.version }} — skipping commit."
+            echo "No version changes to commit — skipping."
           else
             git commit -m "chore: bump version to ${{ steps.version.outputs.tag }}"
             git push origin main
