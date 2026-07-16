@@ -31,10 +31,8 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: |
-          uv lock
-          git diff uv.lock
-          uv sync --locked --all-extras
+        run: uv sync --locked --all-extras
+
 
 
       - name: Check formatting with Ruff
