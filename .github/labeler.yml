@@ -1,0 +1,56 @@
+# Automated PR labeling rules based on modified files and branch names
+
+# 💬 Telegram Bot & UX
+telegram:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/paperless_genie/bot.py'
+
+# 🤖 AI Agent behavior & instructions
+agent:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/paperless_genie/bot.py'
+
+# 🏛️ Paperless-ngx REST & MCP Integration
+paperless:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/paperless_genie/bot.py'
+          - 'src/paperless_genie/config.py'
+
+# 🧪 Automated Tests
+testing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+          - '**/test_*.py'
+
+# 📚 Documentation
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+# ⚙️ CI/CD workflows and local project configuration
+ci-cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - 'pyproject.toml'
+          - 'uv.lock'
+          - '.pre-commit-config.yaml'
+
+# 📦 Infrastructure & Docker
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Dockerfile'
+          - 'docker-compose.yml'
+
+# Type labels based on branch naming conventions
+enhancement:
+  - head-branch: ['^feat/', '^feature/']
+bug:
+  - head-branch: ['^bug/', '^fix/', '^bugfix/']

@@ -1,0 +1,26 @@
+# Categorizes auto-generated release notes (gh release create --generate-notes)
+# by the standardized PR labels applied by .github/labeler.yml.
+changelog:
+  categories:
+    - title: 🚀 New Features
+      labels: [enhancement]
+    - title: 🐛 Bug Fixes
+      labels: [bug]
+    - title: 🤖 AI Agent & Prompts
+      labels: [agent]
+    - title: 💬 Telegram Bot & UX
+      labels: [telegram]
+    - title: 🏛️ Paperless-ngx Integration
+      labels: [paperless]
+    - title: 🛠 Refactoring & Performance
+      labels: [refactoring, performance]
+    - title: 📚 Documentation
+      labels: [documentation]
+    - title: ⚙️ CI/CD & Automation
+      labels: [ci-cd]
+    - title: 📦 Infrastructure & Docker
+      labels: [infrastructure]
+    - title: 📦 Dependencies
+      labels: [dependencies]
+    - title: Other Changes
+      labels: ['*']
