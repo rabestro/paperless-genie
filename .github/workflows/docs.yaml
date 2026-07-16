@@ -25,7 +25,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --all-extras
+        run: uv sync --locked --no-dev --group docs
 
       - name: Deploy documentation via MkDocs
-        run: uv run mkdocs gh-deploy --force
+        run: uv run --no-sync mkdocs gh-deploy --force

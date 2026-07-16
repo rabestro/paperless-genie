@@ -41,8 +41,8 @@ Make sure you have `mise` installed on your machine.
 # Install Python 3.14 and uv
 mise install
 
-# Install project dependencies
-uv sync --all-extras
+# Install project dependencies (dev + docs dependency groups included)
+uv sync --all-groups
 
 # Setup pre-commit hooks
 uv run pre-commit install
