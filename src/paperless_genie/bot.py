@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -519,6 +520,9 @@ def _build_mcp_env(user_token: str) -> dict[str, str]:
     return env
 
 
+_MCP_BINARY = "paperless-mcp"
+
+
 def _build_mcp_server(user_token: str) -> McpStdioServer:
     """Builds the stdio MCP server descriptor for the Paperless-ngx MCP tools.
 
@@ -534,10 +538,22 @@ def _build_mcp_server(user_token: str) -> McpStdioServer:
 
     Returns:
         Configured McpStdioServer ready to pass to LocalAgentConfig.
+
+    Raises:
+        RuntimeError: If the `paperless-mcp` binary isn't on PATH — expected
+            in local development when the pinned package hasn't been
+            installed yet (see README.md's local setup section).
     """
+    if shutil.which(_MCP_BINARY) is None:
+        raise RuntimeError(
+            f"'{_MCP_BINARY}' was not found on PATH. Install Node.js 24+ and run "
+            f"'npm install -g @baruchiro/paperless-mcp@<version>' — see README.md's "
+            f"local setup section for the exact pinned version."
+        )
+
     return McpStdioServer(
         name="paperless-ngx",
-        command="paperless-mcp",
+        command=_MCP_BINARY,
         args=[],
         env=_build_mcp_env(user_token),
     )

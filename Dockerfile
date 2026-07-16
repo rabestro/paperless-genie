@@ -25,7 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # handling never fetches package code from npm at request time. Bump this
 # alongside the version documented in README.md's local setup instructions.
 ARG PAPERLESS_MCP_VERSION=2.0.0
-RUN npm install -g "@baruchiro/paperless-mcp@${PAPERLESS_MCP_VERSION}"
+RUN npm install -g "@baruchiro/paperless-mcp@${PAPERLESS_MCP_VERSION}" \
+    && npm cache clean --force
 
 # Install uv for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
