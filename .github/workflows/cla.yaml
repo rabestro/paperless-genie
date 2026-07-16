@@ -1,0 +1,60 @@
+name: "CI: CLA"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  cla-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Verify the PR author has signed the CLA
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            if (author === context.repo.owner) {
+              console.log(`@${author} is the repository owner — CLA not required.`);
+              return;
+            }
+            if (author.endsWith('[bot]')) {
+              console.log(`@${author} is a bot account — CLA not required.`);
+              return;
+            }
+            // The checkout above is the PR merge commit, so an entry added in this
+            // same pull request counts — signing is part of the first contribution.
+            const file = '.github/cla-signatures.json';
+            let registry;
+            try {
+              registry = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+            } catch (error) {
+              core.setFailed(`Cannot read ${file}: ${error.message}`);
+              return;
+            }
+            const current = registry.claVersion;
+            const entries = (registry.signatures ?? []).filter(
+              (entry) => (entry.github ?? '').toLowerCase() === author.toLowerCase()
+            );
+            if (entries.some((entry) => entry.claVersion === current)) {
+              console.log(`@${author} has signed CLA v${current}.`);
+              return;
+            }
+            if (entries.length > 0) {
+              core.setFailed(
+                `@${author} signed an earlier CLA version, but the current agreement is v${current}. ` +
+                `Please re-read CLA.md and update your entry in ${file} to "claVersion": "${current}".`
+              );
+              return;
+            }
+            core.setFailed(
+              `@${author} has not signed the Contributor License Agreement. ` +
+              `Please read CLA.md and add yourself to ${file} in this pull request ` +
+              `(with "claVersion": "${current}") — the commit adding your entry is ` +
+              `your electronic signature.`
+            );

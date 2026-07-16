@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/rabestro/paperless-genie/security/advisories/new
+    about: Please use private vulnerability reporting — never a public issue (see SECURITY.md).
+  - name: 📖 Documentation
+    url: https://jc.id.lv/paperless-genie/
+    about: Setup guides for Telegram, Paperless-ngx, Gemini, and deployment.
