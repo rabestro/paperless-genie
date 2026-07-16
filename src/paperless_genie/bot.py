@@ -403,12 +403,27 @@ async def _upload_and_wait_for_ocr(
         max_wait = 180  # 3 minutes maximum wait time
         start_time = datetime.now(UTC)
 
+        consecutive_failures = 0
         while (datetime.now(UTC) - start_time).total_seconds() < max_wait:
             await asyncio.sleep(3)
-            task_response = await client.get(tasks_url, headers=headers)
-            task_response.raise_for_status()
+            try:
+                task_response = await client.get(tasks_url, headers=headers)
+                task_response.raise_for_status()
+                task_data = task_response.json()
+                consecutive_failures = 0  # reset on success
+            except (httpx.HTTPError, ValueError) as err:
+                consecutive_failures += 1
+                logger.warning(
+                    "Transient error polling tasks API (failure %d): %s",
+                    consecutive_failures,
+                    err,
+                )
+                if consecutive_failures >= 5:  # noqa: PLR2004
+                    raise ValueError(
+                        f"Failed to poll task status after 5 attempts: {err}"
+                    ) from err
+                continue
 
-            task_data = task_response.json()
             # Handle list or dict results
             if isinstance(task_data, dict) and "results" in task_data:
                 tasks = task_data["results"]
@@ -444,7 +459,7 @@ async def _upload_and_wait_for_ocr(
                     or "duplicate" in result_text.lower()
                 ):
                     # Parse document ID from result, e.g. "duplicate of #416"
-                    match = re.search(r"#?(\d+)", result_text)
+                    match = re.search(r"#(\d+)", result_text)
                     if match:
                         raise DuplicateDocumentError(doc_id=int(match.group(1)))
                     # Fallback pattern
