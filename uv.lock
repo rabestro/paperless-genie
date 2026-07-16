@@ -1263,6 +1263,7 @@ dependencies = [
     { name = "google-antigravity" },
     { name = "httpx" },
     { name = "pytelegrambotapi" },
+    { name = "python-dotenv" },
 ]
 
 [package.optional-dependencies]
@@ -1289,6 +1290,7 @@ requires-dist = [
     { name = "pytelegrambotapi", specifier = ">=4.20.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
 ]
 provides-extras = ["dev", "docs"]
