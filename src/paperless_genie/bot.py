@@ -1,3 +1,5 @@
+"""Telegram bot handlers and the Paperless-ngx archiving agent."""
+
 import asyncio
 import logging
 import os
@@ -32,6 +34,11 @@ logger = logging.getLogger(__name__)
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
     {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".tif", ".webp", ".bmp"}
 )
+
+# Telegram caps messages at 4096 characters; 4000 leaves margin for edits/ellipsis.
+_TELEGRAM_MESSAGE_LIMIT = 4000
+# Give up polling the tasks API after this many consecutive failures.
+_MAX_CONSECUTIVE_POLL_FAILURES = 5
 
 # Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
 _FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
@@ -92,7 +99,7 @@ async def _send_with_doc_buttons(
     """Sends a text message and attaches download buttons for any [#ID] tags.
 
     The [#ID] markers are stripped from the visible text before sending.
-    If the text exceeds 4000 characters it is split into chunks; buttons are
+    If the text exceeds the Telegram message limit it is split into chunks; buttons are
     attached only to the last chunk.
 
     Args:
@@ -113,8 +120,11 @@ async def _send_with_doc_buttons(
 
     keyboard = _build_doc_keyboard(doc_ids)
 
-    if len(clean_text) > 4000:  # noqa: PLR2004
-        chunks = [clean_text[i : i + 4000] for i in range(0, len(clean_text), 4000)]
+    if len(clean_text) > _TELEGRAM_MESSAGE_LIMIT:
+        chunks = [
+            clean_text[i : i + _TELEGRAM_MESSAGE_LIMIT]
+            for i in range(0, len(clean_text), _TELEGRAM_MESSAGE_LIMIT)
+        ]
         for chunk in chunks[:-1]:
             await bot.send_message(chat_id, chunk)
         # Attach buttons only to the last chunk
@@ -238,7 +248,7 @@ async def _fetch_document_info(doc_id: int, api_token: str) -> dict[str, object]
     headers = {"Authorization": f"Token {api_token}"}
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(url, headers=headers)
-        if resp.status_code == 404:
+        if resp.status_code == httpx.codes.NOT_FOUND:
             return None
         resp.raise_for_status()
         result: dict[str, object] = resp.json()
@@ -347,7 +357,7 @@ async def handle_get(message: Message) -> None:
         )
 
 
-async def _upload_and_wait_for_ocr(
+async def _upload_and_wait_for_ocr(  # noqa: PLR0912, PLR0915 — split planned with the bot.py refactor
     *,
     file_bytes: bytes,
     file_name: str,
@@ -382,10 +392,7 @@ async def _upload_and_wait_for_ocr(
         # e.g. "uuid" or dict {"task_id": "uuid"})
         try:
             data = response.json()
-            if isinstance(data, dict):
-                task_id = data.get("task_id")
-            else:
-                task_id = str(data)
+            task_id = data.get("task_id") if isinstance(data, dict) else str(data)
         except Exception:
             task_id = response.text.strip().strip('"')
 
@@ -419,9 +426,10 @@ async def _upload_and_wait_for_ocr(
                     consecutive_failures,
                     err,
                 )
-                if consecutive_failures >= 5:  # noqa: PLR2004
+                if consecutive_failures >= _MAX_CONSECUTIVE_POLL_FAILURES:
                     raise ValueError(
-                        f"Failed to poll task status after 5 attempts: {err}"
+                        f"Failed to poll task status after "
+                        f"{_MAX_CONSECUTIVE_POLL_FAILURES} attempts: {err}"
                     ) from err
                 continue
 
@@ -453,7 +461,7 @@ async def _upload_and_wait_for_ocr(
                     f"Task succeeded but related_document ID not found. Result: {result_text}"
                 )
 
-            elif status in ("FAILED", "FAILURE"):
+            if status in ("FAILED", "FAILURE"):
                 result_text = str(task.get("result") or "")
                 if (
                     "is a duplicate of" in result_text.lower()
@@ -666,9 +674,9 @@ async def _archive_file(
                 message_id=status_message_id,
             )
 
-            if len(agent_report) > 4000:  # noqa: PLR2004
-                for i in range(0, len(agent_report), 4000):
-                    await bot.send_message(chat_id, agent_report[i : i + 4000])
+            if len(agent_report) > _TELEGRAM_MESSAGE_LIMIT:
+                for i in range(0, len(agent_report), _TELEGRAM_MESSAGE_LIMIT):
+                    await bot.send_message(chat_id, agent_report[i : i + _TELEGRAM_MESSAGE_LIMIT])
             else:
                 await bot.send_message(chat_id, agent_report)
 

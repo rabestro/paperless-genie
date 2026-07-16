@@ -1,5 +1,8 @@
+"""Environment-driven configuration for paperless-genie."""
+
 import json
 import os
+from typing import ClassVar
 
 from dotenv import load_dotenv
 
@@ -15,7 +18,7 @@ class Config:
     GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # Mapping of Telegram user IDs to Paperless API tokens
-    USER_TOKENS: dict[int, str] = {}
+    USER_TOKENS: ClassVar[dict[int, str]] = {}
 
     @classmethod
     def validate(cls) -> None:

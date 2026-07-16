@@ -60,13 +60,25 @@ select = [
   "C4",  # flake8-comprehensions
   "DTZ", # flake8-datetimez
   "PT",  # flake8-pytest-style
+  "PL",  # pylint (complexity, magic values, common mistakes)
+  "RUF", # ruff-specific (incl. RUF100 unused-noqa)
+  "SIM", # flake8-simplify
+  "N",   # pep8-naming
+  "A",   # flake8-builtins (builtin shadowing)
+  "RET", # flake8-return
+  "D",   # pydocstyle (docstrings; google convention below)
 ]
 ignore = [
   "S101", # Use of assert detected (needed for testing)
+  "D107", # Missing docstring in __init__ (constructor args belong in the class docstring)
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S105"]
+# D1: test names are the documentation; docstrings on every test add noise.
+"tests/*" = ["S101", "S105", "D1"]
 
 [tool.mypy]
 strict = true
