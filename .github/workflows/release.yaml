@@ -33,13 +33,11 @@ jobs:
       - name: Compute next version
         id: version
         run: |
-          # Get the latest semver tag, fall back to v0.0.0 if none exist
-          latest=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $latest"
+          # Use pyproject.toml as the source of truth for the current version
+          current=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "Current version (pyproject.toml): $current"
 
-          # Strip the leading 'v' and split into parts
-          version="${latest#v}"
-          IFS='.' read -r major minor patch <<< "$version"
+          IFS='.' read -r major minor patch <<< "$current"
 
           case "${{ github.event.inputs.bump }}" in
             major) major=$((major + 1)); minor=0; patch=0 ;;
@@ -51,21 +49,29 @@ jobs:
           new_tag="v${new_version}"
           echo "New version: $new_version  →  tag: $new_tag"
 
+          # Previous tag is used only for changelog range (may not exist yet)
+          prev_tag=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "")
+          echo "Previous tag: ${prev_tag:-<none>}"
+
           echo "version=${new_version}" >> "$GITHUB_OUTPUT"
           echo "tag=${new_tag}"         >> "$GITHUB_OUTPUT"
-          echo "prev_tag=${latest}"     >> "$GITHUB_OUTPUT"
+          echo "prev_tag=${prev_tag}"   >> "$GITHUB_OUTPUT"
 
       - name: Update version in pyproject.toml
         run: |
           sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
-          echo "pyproject.toml updated:"
-          grep "^version" pyproject.toml
+          echo "pyproject.toml after update:"
+          grep '^version' pyproject.toml
 
       - name: Commit version bump
         run: |
           git add pyproject.toml
-          git commit -m "chore: bump version to ${{ steps.version.outputs.tag }}"
-          git push origin main
+          if git diff --cached --quiet; then
+            echo "Version in pyproject.toml is already ${{ steps.version.outputs.version }} — skipping commit."
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.tag }}"
+            git push origin main
+          fi
 
       - name: Create and push tag
         run: |
@@ -78,20 +84,21 @@ jobs:
           prev="${{ steps.version.outputs.prev_tag }}"
           tag="${{ steps.version.outputs.tag }}"
 
-          if [ "$prev" = "v0.0.0" ]; then
-            # First release — use the full commit log
+          if [ -z "$prev" ]; then
+            # First release — include the full commit history
             log=$(git log --pretty=format:"- %s (%h)" HEAD)
+            compare_url="https://github.com/${{ github.repository }}/commits/${tag}"
           else
             log=$(git log --pretty=format:"- %s (%h)" "${prev}..HEAD^")
+            compare_url="https://github.com/${{ github.repository }}/compare/${prev}...${tag}"
           fi
 
-          # Write multi-line notes to file to avoid shell quoting issues
           {
             echo "## What's Changed"
             echo ""
             echo "$log"
             echo ""
-            echo "**Full Changelog:** https://github.com/${{ github.repository }}/compare/${prev}...${tag}"
+            echo "**Full Changelog:** ${compare_url}"
           } > release_notes.md
 
           cat release_notes.md
