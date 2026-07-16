@@ -677,8 +677,7 @@ async def _archive_file(
                 created = info.get("created") or info.get("created_date") or ""
 
                 msg = (
-                    f"⚠️ Этот документ уже существует в архиве под номером #{e.doc_id}:\n\n"
-                    f"📄 **{title}**"
+                    f"⚠️ This document already exists in the archive as #{e.doc_id}:\n\n📄 {title}"
                 )
                 if created:
                     msg += f"\n📅 {created}"
@@ -695,7 +694,7 @@ async def _archive_file(
             logger.exception("Error fetching details for duplicate document %d", e.doc_id)
 
         await bot.edit_message_text(
-            f"⚠️ Этот документ уже существует в архиве под номером #{e.doc_id}.",
+            f"⚠️ This document already exists in the archive as #{e.doc_id}.",
             chat_id=chat_id,
             message_id=status_message_id,
         )
