@@ -4,6 +4,7 @@ import re
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import ClassVar
 
 import httpx
@@ -15,6 +16,11 @@ from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from paperless_genie.config import Config
 
 logger = logging.getLogger(__name__)
+
+# File extensions accepted for archiving (Paperless-ngx supports all of these)
+SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
+    {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tiff", ".tif", ".webp", ".bmp"}
+)
 
 # Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
 _FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
@@ -330,10 +336,120 @@ async def handle_get(message: Message) -> None:
         )
 
 
+async def _archive_file(
+    *,
+    file_bytes: bytes,
+    file_name: str,
+    user_token: str,
+    chat_id: int,
+    status_message_id: int,
+) -> None:
+    """Downloads, saves, and archives a file using the AI agent.
+
+    This helper is shared by the document and photo handlers so that the
+    archiving workflow is defined in a single place.
+
+    Args:
+        file_bytes: Raw bytes of the file to archive.
+        file_name: Original filename (used to save the temp file).
+        user_token: Paperless-ngx API token for the requesting user.
+        chat_id: Telegram chat to send status and report messages to.
+        status_message_id: ID of the 'processing…' status message to edit.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        local_file_path = os.path.join(temp_dir, file_name)
+        with open(local_file_path, "wb") as fh:
+            fh.write(file_bytes)
+
+        logger.info("Saved temporary file to %s", local_file_path)
+        await bot.edit_message_text(
+            "🧠 Analyzing the document with AI…",
+            chat_id=chat_id,
+            message_id=status_message_id,
+        )
+
+        mcp_env = {
+            "PAPERLESS_URL": Config.PAPERLESS_URL,
+            "PAPERLESS_API_TOKEN": user_token,
+            "PAPERLESS_API_KEY": user_token,
+        }
+        for k, v in os.environ.items():
+            if k not in mcp_env:
+                mcp_env[k] = v
+
+        mcp_server = McpStdioServer(
+            name="paperless-ngx",
+            command="npx",
+            args=["-y", "@baruchiro/paperless-mcp"],
+            env=mcp_env,
+        )
+
+        system_instructions = (
+            "You are an expert archiving assistant for the family archive in Paperless-ngx. "
+            "Always adhere to these rules when archiving documents:\n"
+            "1. Search the database to check if a document already exists "
+            "(by content or metadata).\n"
+            "2. If it exists, notify the user and stop.\n"
+            "3. If it does not exist, upload it using post_document.\n"
+            "4. Wait for OCR to complete, then update its metadata "
+            "(Title, Created Date, Correspondent, Document Type).\n"
+            "5. Assign tags: '👥 Family' (ID 11) for family documents, "
+            "'Jane' (ID 12) for Jane Doe, "
+            "'🏛️ History' (ID 5) for historical documents, "
+            "'🎓 Education' (ID 18) for certificates/diplomas.\n"
+            "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
+            "7. Add a structured Russian note describing the document, "
+            "owner, and key details.\n"
+            "8. Output a final report in Russian describing what actions were done.\n"
+            "IMPORTANT FORMATTING RULES:\n"
+            "- The response will be sent as a Telegram message. "
+            "Do NOT use markdown links with URLs. "
+            "Do NOT include any file:// or http:// links in the response.\n"
+            "- Refer to documents only by their title and date, for example: "
+            "'Паспорт Ивана Иванова (15.03.1993)'.\n"
+            "- Use plain text and emoji for formatting. "
+            "Avoid Markdown syntax like **bold** or [text](url)."
+        )
+
+        agent_config = LocalAgentConfig(
+            system_instructions=system_instructions,
+            mcp_servers=[mcp_server],
+            capabilities=CapabilitiesConfig(allow_file_write=True, allow_command_execution=True),
+            save_dir=temp_dir,
+            model=Config.GEMINI_MODEL,
+        )
+
+        prompt = (
+            f"We have a new document to archive:\n"
+            f"Path: {local_file_path}\n"
+            f"Original Filename: {file_name}\n\n"
+            f"Please analyze, upload and categorize this document according to the guidelines."
+        )
+
+        async with Agent(agent_config) as agent:
+            response = await agent.chat(prompt)
+            agent_report = ""
+            async for token in response:
+                agent_report += token
+
+        agent_report = _clean_agent_response(agent_report)
+
+        await bot.edit_message_text(
+            "✅ Processing completed!",
+            chat_id=chat_id,
+            message_id=status_message_id,
+        )
+
+        if len(agent_report) > 4000:  # noqa: PLR2004
+            for i in range(0, len(agent_report), 4000):
+                await bot.send_message(chat_id, agent_report[i : i + 4000])
+        else:
+            await bot.send_message(chat_id, agent_report)
+
+
 @bot.message_handler(content_types=["document"])
 async def handle_document(message: Message) -> None:
-    """Processes document uploads by downloading them, running the AI agent,
-    and posting to Paperless.
+    """Processes document uploads (PDF, JPG, PNG, etc.) and archives them.
 
     Args:
         message: The received Telegram message.
@@ -344,125 +460,81 @@ async def handle_document(message: Message) -> None:
     if not message.document or not message.from_user:
         return
 
-    file_name = message.document.file_name
-    if not file_name or not file_name.lower().endswith(".pdf"):
-        await bot.reply_to(message, "❌ Only PDF files are supported.")
+    file_name = message.document.file_name or ""
+    ext = os.path.splitext(file_name)[1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        await bot.reply_to(
+            message,
+            f"❌ Unsupported file type '{ext}'.\n"
+            f"Accepted formats: PDF, JPG, PNG, GIF, TIFF, WEBP, BMP.",
+        )
         return
 
     status_message = await bot.reply_to(
         message, "📥 Downloading document and initializing agent..."
     )
-
     try:
-        # Get the user-specific Paperless API token
         user_token = Config.get_token_for_user(message.from_user.id)
-
-        # Download the document to a temporary directory
         file_info = await bot.get_file(message.document.file_id)
-        downloaded_file = await bot.download_file(file_info.file_path)
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            local_file_path = os.path.join(temp_dir, file_name)
-            with open(local_file_path, "wb") as f:
-                f.write(downloaded_file)
-
-            logger.info("Saved temporary file to %s", local_file_path)
-            await bot.edit_message_text(
-                "🧠 Analyzing the document with AI...",
-                chat_id=status_message.chat.id,
-                message_id=status_message.message_id,
-            )
-
-            # Build environment variables for the MCP server
-            mcp_env = {
-                "PAPERLESS_URL": Config.PAPERLESS_URL,
-                "PAPERLESS_API_TOKEN": user_token,
-                "PAPERLESS_API_KEY": user_token,
-            }
-            # Inherit host env to ensure Node/npm/etc. can be found
-            for k, v in os.environ.items():
-                if k not in mcp_env:
-                    mcp_env[k] = v
-
-            # Configure dynamic MCP server
-            mcp_server = McpStdioServer(
-                name="paperless-ngx",
-                command="npx",
-                args=["-y", "@baruchiro/paperless-mcp"],
-                env=mcp_env,
-            )
-
-            # Archiving instructions for the agent
-            system_instructions = (
-                "You are an expert archiving assistant for the family archive in Paperless-ngx. "
-                "Always adhere to these rules when archiving documents:\n"
-                "1. Search the database to check if a document already exists "
-                "(by content or metadata).\n"
-                "2. If it exists, notify the user and stop.\n"
-                "3. If it does not exist, upload it using post_document.\n"
-                "4. Wait for OCR to complete, then update its metadata "
-                "(Title, Created Date, Correspondent, Document Type).\n"
-                "5. Assign tags: '👥 Family' (ID 11) for family documents, "
-                "'Jane' (ID 12) for Jane Doe, "
-                "'🏛️ History' (ID 5) for historical documents, "
-                "'🎓 Education' (ID 18) for certificates/diplomas.\n"
-                "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
-                "7. Add a structured Russian note describing the document, "
-                "owner, and key details.\n"
-                "8. Output a final report in Russian describing what actions were done.\n"
-                "IMPORTANT FORMATTING RULES:\n"
-                "- The response will be sent as a Telegram message. "
-                "Do NOT use markdown links with URLs. "
-                "Do NOT include any file:// or http:// links in the response.\n"
-                "- Refer to documents only by their title and date, for example: "
-                "'Паспорт Ивана Иванова (15.03.1993)'.\n"
-                "- Use plain text and emoji for formatting. "
-                "Avoid Markdown syntax like **bold** or [text](url)."
-            )
-
-            agent_config = LocalAgentConfig(
-                system_instructions=system_instructions,
-                mcp_servers=[mcp_server],
-                capabilities=CapabilitiesConfig(
-                    allow_file_write=True, allow_command_execution=True
-                ),
-                save_dir=temp_dir,
-                model=Config.GEMINI_MODEL,
-            )
-
-            # Formulate the prompt for the agent
-            prompt = (
-                f"We have a new document to archive:\n"
-                f"Path: {local_file_path}\n"
-                f"Original Filename: {file_name}\n\n"
-                f"Please analyze, upload and categorize this document according to the guidelines."
-            )
-
-            async with Agent(agent_config) as agent:
-                response = await agent.chat(prompt)
-                agent_report = ""
-                async for token in response:
-                    agent_report += token
-
-            agent_report = _clean_agent_response(agent_report)
-
-            await bot.edit_message_text(
-                "✅ Processing completed!",
-                chat_id=status_message.chat.id,
-                message_id=status_message.message_id,
-            )
-
-            if len(agent_report) > 4000:
-                for i in range(0, len(agent_report), 4000):
-                    await bot.send_message(message.chat.id, agent_report[i : i + 4000])
-            else:
-                await bot.send_message(message.chat.id, agent_report)
-
+        file_bytes = await bot.download_file(file_info.file_path)
+        await _archive_file(
+            file_bytes=file_bytes,
+            file_name=file_name,
+            user_token=user_token,
+            chat_id=message.chat.id,
+            status_message_id=status_message.message_id,
+        )
     except Exception as e:
-        logger.exception("Error processing document")
+        logger.exception("Error processing document upload")
         await bot.edit_message_text(
             f"❌ An error occurred during processing: {e}",
-            chat_id=status_message.chat.id,
+            chat_id=message.chat.id,
+            message_id=status_message.message_id,
+        )
+
+
+@bot.message_handler(content_types=["photo"])
+async def handle_photo(message: Message) -> None:
+    """Processes photos sent directly to the chat (Telegram compresses them as JPEG).
+
+    Telegram compresses direct photo messages to JPEG. The highest-resolution
+    version is downloaded and forwarded to the archiving agent.
+
+    Args:
+        message: The received Telegram message.
+    """
+    if not is_allowed(message):
+        return
+
+    if not message.photo or not message.from_user:
+        return
+
+    status_message = await bot.reply_to(message, "📥 Downloading photo and initializing agent...")
+    try:
+        user_token = Config.get_token_for_user(message.from_user.id)
+        # Take the highest-resolution version (last in the list)
+        best = message.photo[-1]
+        file_info = await bot.get_file(best.file_id)
+        file_bytes = await bot.download_file(file_info.file_path)
+        # Build a sensible filename from the caption or timestamp
+        caption_slug = (
+            message.caption.strip().replace(" ", "_")[:40]
+            if message.caption
+            else datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+        )
+        file_name = f"{caption_slug}.jpg"
+        await _archive_file(
+            file_bytes=file_bytes,
+            file_name=file_name,
+            user_token=user_token,
+            chat_id=message.chat.id,
+            status_message_id=status_message.message_id,
+        )
+    except Exception as e:
+        logger.exception("Error processing photo upload")
+        await bot.edit_message_text(
+            f"❌ An error occurred during processing: {e}",
+            chat_id=message.chat.id,
             message_id=status_message.message_id,
         )
 
