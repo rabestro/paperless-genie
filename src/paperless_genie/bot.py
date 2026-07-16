@@ -389,10 +389,11 @@ async def _upload_and_wait_for_ocr(  # noqa: PLR0912, PLR0915 — split planned 
         response.raise_for_status()
 
         # Parse task ID (which is sometimes a raw JSON string
-        # e.g. "uuid" or dict {"task_id": "uuid"})
+        # e.g. "uuid" or dict {"task_id": "uuid"}). `data or ""` keeps a JSON
+        # null falsy so the guard below rejects it instead of str(None) -> "None".
         try:
             data = response.json()
-            task_id = data.get("task_id") if isinstance(data, dict) else str(data)
+            task_id = data.get("task_id") if isinstance(data, dict) else str(data or "")
         except Exception:
             task_id = response.text.strip().strip('"')
 
