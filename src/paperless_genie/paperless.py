@@ -117,7 +117,7 @@ def _extract_document_id(task: PaperlessTask) -> int | None:
     """
     if task.related_document is not None:
         return task.related_document
-    match = re.search(r"document id (\d+) created", task.result or "")
+    match = re.search(r"document id (\d+) created", task.result or "", re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
@@ -138,7 +138,7 @@ def _extract_duplicate_id(result_text: str) -> int | None:
     if match:
         return int(match.group(1))
     # Fallback pattern, e.g. "... id 416"
-    match = re.search(r"id\s+(\d+)", result_text)
+    match = re.search(r"id\s+(\d+)", result_text, re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 

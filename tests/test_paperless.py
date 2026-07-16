@@ -65,6 +65,11 @@ def test_extract_document_id_falls_back_to_result_text() -> None:
     assert _extract_document_id(task) == 42
 
 
+def test_extract_document_id_fallback_is_case_insensitive() -> None:
+    task = PaperlessTask(status="SUCCESS", result="Document ID 42 created")
+    assert _extract_document_id(task) == 42
+
+
 def test_extract_document_id_none_when_unavailable() -> None:
     assert _extract_document_id(PaperlessTask(status="SUCCESS", result="done")) is None
 
@@ -75,6 +80,10 @@ def test_extract_duplicate_id_hash_pattern() -> None:
 
 def test_extract_duplicate_id_id_pattern() -> None:
     assert _extract_duplicate_id("duplicate, see id 99") == 99
+
+
+def test_extract_duplicate_id_id_pattern_is_case_insensitive() -> None:
+    assert _extract_duplicate_id("Duplicate, see ID 99") == 99
 
 
 def test_extract_duplicate_id_none_when_not_duplicate() -> None:
