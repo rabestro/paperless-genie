@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# =============================================================================
+# CodeRabbit Configuration — Paperless Genie (Python 3.14 async Telegram bot)
+# =============================================================================
+# Reviews are triggered MANUALLY: comment `@coderabbitai review` on the PRs
+# that warrant a second opinion. Auto-review stays off because the free tier
+# is rate-limited (roughly one review per hour) and this repo's PR volume
+# during active development would exhaust it — the Gemini workflow
+# (gemini-review.yml) covers every PR automatically instead.
+# =============================================================================
+
+language: en-US
+
+reviews:
+  # ── Review Style ──────────────────────────────────────────────────────────
+  profile: assertive
+
+  # ── Disable Summaries & Decorations ───────────────────────────────────────
+  # Summaries and poems add noise to PR threads. Walkthroughs are collapsed
+  # to keep the PR page clean while still being accessible on demand.
+  high_level_summary: false
+  poem: false
+  collapse_walkthrough: true
+
+  # ── Auto-Review Settings ──────────────────────────────────────────────────
+  auto_review:
+    enabled: false
+    drafts: false
+    base_branches:
+      - main
+
+  # ── Path Filters ──────────────────────────────────────────────────────────
+  path_filters:
+    - "!uv.lock"
+    - "!**/*.lock"
+
+  # ── Tool Configuration ───────────────────────────────────────────────────
+  # Only tools relevant to this Python + Docker + GitHub Actions + Markdown
+  # stack.
+  tools:
+    ruff:
+      enabled: true        # Python linting — the same tool the repo itself runs
+    actionlint:
+      enabled: true        # Validate GitHub Actions workflow YAML
+    hadolint:
+      enabled: true        # Dockerfile best practices
+    gitleaks:
+      enabled: true        # Detect leaked secrets (complements betterleaks pre-commit hook)
+    shellcheck:
+      enabled: true        # Inline shell in workflows and mise tasks
+    markdownlint:
+      enabled: true        # README and docs formatting
+
+  # ── Domain-Specific Path Instructions ─────────────────────────────────────
+  path_instructions:
+    - path: "src/paperless_genie/**"
+      instructions: |
+        Async Telegram bot (pyTelegramBotAPI) driving a Google Antigravity
+        agent with Paperless-ngx MCP tools. When reviewing:
+        - The MCP subprocess environment is built from an explicit allowlist
+          (_build_mcp_env). Flag ANY change that forwards extra environment
+          variables to the subprocess — especially TELEGRAM_BOT_TOKEN,
+          GEMINI_API_KEY, or PAPERLESS_USER_TOKENS (multi-user isolation
+          depends on this boundary).
+        - The Paperless MCP server binary is version-pinned and pre-installed
+          in the image; flag any return to `npx <pkg>` at request time (npx
+          does not verify the requested version when a same-named binary is
+          already on PATH).
+        - Agent prompts must stay instance-agnostic: tags are discovered via
+          `list_tags` at runtime. Flag hardcoded tag names, numeric tag IDs,
+          correspondent IDs, or any other instance-specific data in prompts.
+        - Fixed UI strings are English only; agent-generated content is
+          language-matched to the user. Telegram messages use plain text +
+          emoji — no Markdown markup (handlers do not set parse_mode).
+        - Every handler must check per-user authorization (is_allowed /
+          Config.get_token_for_user) before doing any work.
+    - path: "src/paperless_genie/config.py"
+      instructions: |
+        Env-driven configuration. Any new required variable must be validated
+        in Config.validate() with the established fail-fast ValueError
+        pattern, added to docker-compose.yml's environment passthrough, and
+        documented in README.md.
+    - path: "tests/**"
+      instructions: |
+        Pytest suite. When reviewing:
+        - Mutations of Config attributes or os.environ must go through the
+          monkeypatch fixture (setattr/setenv) so tests stay
+          order-independent — never direct assignment.
+        - tests/conftest.py must keep setting a syntactically valid
+          placeholder TELEGRAM_BOT_TOKEN before any module imports
+          paperless_genie.bot (AsyncTeleBot is constructed at import time and
+          telebot validates the token format).
+    - path: "Dockerfile"
+      instructions: |
+        Runtime image rules established in past reviews:
+        - python:3.14-slim base — the single supported Python version, kept
+          in lockstep with .python-version, mise.toml, and CI.
+        - Node.js 24+ (required by @baruchiro/paperless-mcp's engines field).
+        - Runtime runs as the unprivileged `app` user; files land via
+          COPY --chown, never a post-hoc `chown -R` layer.
+        - The uv binary copy and PAPERLESS_MCP_VERSION are version-pinned;
+          the MCP version is bumped together with README's local setup
+          instructions.
+    - path: ".github/workflows/**"
+      instructions: |
+        Single Python version (3.14) everywhere — no version matrix. uv
+        installs must use --locked against the committed lockfile.
