@@ -1,3 +1,5 @@
+"""Entry point: validates configuration and starts the bot polling loop."""
+
 import asyncio
 import logging
 
