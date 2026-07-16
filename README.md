@@ -48,6 +48,17 @@ uv sync --all-extras
 uv run pre-commit install
 ```
 
+The bot talks to Paperless-ngx through the [`@baruchiro/paperless-mcp`](https://github.com/baruchiro/paperless-mcp)
+MCP server. Install Node.js 24+ and pre-install the exact pinned version globally so the
+bot can find it on `PATH` (the Docker image does this automatically):
+
+```bash
+npm install -g @baruchiro/paperless-mcp@2.0.0
+```
+
+This version must match the `PAPERLESS_MCP_VERSION` build argument in the [Dockerfile](Dockerfile) —
+when bumping one, bump the other.
+
 ### 3. Available Tasks (via `mise`)
 
 * **Run the bot**: `mise run run`

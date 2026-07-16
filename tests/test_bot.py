@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 
 from paperless_genie import bot as bot_module
@@ -64,3 +66,27 @@ def test_build_mcp_env_omits_absent_plumbing_vars(monkeypatch: pytest.MonkeyPatc
     assert "LANG" not in env
     assert "LC_ALL" not in env
     assert "TMPDIR" not in env
+
+
+def test_build_mcp_server_invokes_pinned_binary_directly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PAPERLESS_URL", "http://paperless.example")
+    monkeypatch.setattr(
+        shutil, "which", lambda cmd: "/usr/bin/paperless-mcp" if cmd == "paperless-mcp" else None
+    )
+
+    server = bot_module._build_mcp_server("this-users-token")
+
+    assert server.name == "paperless-ngx"
+    assert server.command == "paperless-mcp"
+    assert server.args == []
+    assert server.env is not None
+    assert server.env["PAPERLESS_API_TOKEN"] == "this-users-token"
+
+
+def test_build_mcp_server_raises_clear_error_when_binary_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+
+    with pytest.raises(RuntimeError, match="paperless-mcp"):
+        bot_module._build_mcp_server("token")

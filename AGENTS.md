@@ -7,6 +7,9 @@ This document defines the rules, stack, standards, and workflow conventions for 
 - **Core**: Python 3.12+ (managed with `uv` package manager).
 - **Telegram Bot**: Async Telegram Bot (`pyTelegramBotAPI`/`telebot.async_telebot`).
 - **AI Integration**: Google Antigravity SDK (`Agent`, `LocalAgentConfig`, `CapabilitiesConfig`).
+- **Paperless MCP tools**: [`@baruchiro/paperless-mcp`](https://github.com/baruchiro/paperless-mcp) (Node.js 24+),
+  invoked directly by its pinned, pre-installed binary — never through `npx` at request time.
+  Bump the version in both the Dockerfile's `PAPERLESS_MCP_VERSION` build arg and README.md.
 - **HTTP client**: `httpx` (async).
 - **Formatting / Linting**: `ruff` (linter and formatter).
 - **Type Checking**: `mypy` (strict mode).

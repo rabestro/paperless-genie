@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -519,6 +520,45 @@ def _build_mcp_env(user_token: str) -> dict[str, str]:
     return env
 
 
+_MCP_BINARY = "paperless-mcp"
+
+
+def _build_mcp_server(user_token: str) -> McpStdioServer:
+    """Builds the stdio MCP server descriptor for the Paperless-ngx MCP tools.
+
+    Invokes the `paperless-mcp` binary directly rather than through `npx`.
+    The image pre-installs an exact pinned version of the package (see the
+    Dockerfile's PAPERLESS_MCP_VERSION build arg) so this never resolves a
+    package over the network at request time — `npx <pkg>@<version>` cannot
+    guarantee that: once any same-named binary is already on PATH, npx runs
+    it without checking whether it actually matches the requested version.
+
+    Args:
+        user_token: Paperless-ngx API token of the requesting user.
+
+    Returns:
+        Configured McpStdioServer ready to pass to LocalAgentConfig.
+
+    Raises:
+        RuntimeError: If the `paperless-mcp` binary isn't on PATH — expected
+            in local development when the pinned package hasn't been
+            installed yet (see README.md's local setup section).
+    """
+    if shutil.which(_MCP_BINARY) is None:
+        raise RuntimeError(
+            f"'{_MCP_BINARY}' was not found on PATH. Install Node.js 24+ and run "
+            f"'npm install -g @baruchiro/paperless-mcp@<version>' — see README.md's "
+            f"local setup section for the exact pinned version."
+        )
+
+    return McpStdioServer(
+        name="paperless-ngx",
+        command=_MCP_BINARY,
+        args=[],
+        env=_build_mcp_env(user_token),
+    )
+
+
 async def _archive_file(
     *,
     file_bytes: bytes,
@@ -555,14 +595,7 @@ async def _archive_file(
             message_id=status_message_id,
         )
 
-        mcp_env = _build_mcp_env(user_token)
-
-        mcp_server = McpStdioServer(
-            name="paperless-ngx",
-            command="npx",
-            args=["-y", "@baruchiro/paperless-mcp"],
-            env=mcp_env,
-        )
+        mcp_server = _build_mcp_server(user_token)
 
         system_instructions = (
             "You are an expert archiving assistant for the personal archive in Paperless-ngx. "
@@ -848,14 +881,7 @@ async def handle_text_query(message: Message) -> None:
     try:
         user_token = Config.get_token_for_user(message.from_user.id)
 
-        mcp_env = _build_mcp_env(user_token)
-
-        mcp_server = McpStdioServer(
-            name="paperless-ngx",
-            command="npx",
-            args=["-y", "@baruchiro/paperless-mcp"],
-            env=mcp_env,
-        )
+        mcp_server = _build_mcp_server(user_token)
 
         system_instructions = (
             "You are a helpful assistant for a personal document archive in Paperless-ngx. "
