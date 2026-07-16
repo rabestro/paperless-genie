@@ -11,6 +11,7 @@ class Config:
 
     TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     PAPERLESS_URL: str = os.environ.get("PAPERLESS_URL", "")
+    GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
     GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # Mapping of Telegram user IDs to Paperless API tokens
@@ -27,6 +28,8 @@ class Config:
             raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set!")
         if not cls.PAPERLESS_URL:
             raise ValueError("PAPERLESS_URL environment variable is not set!")
+        if not cls.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY environment variable is not set!")
 
         raw_tokens = os.environ.get("PAPERLESS_USER_TOKENS", "")
         if not raw_tokens:
