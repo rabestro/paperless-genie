@@ -33,6 +33,17 @@ Before submitting any code changes, ensure they pass the local check suite:
 - **Staging**: Explicitly stage files by name. Avoid `git add .` or `git add -A`.
 - **Deployment**: Production runs on remote server `aurora` in `~/paperless-genie` using the Docker image published to GHCR.
 
+## Automated PR review
+
+- Every non-fork PR gets an automatic Gemini review (`gemini-review.yml`, Vertex AI).
+- CodeRabbit is triggered manually: comment `@coderabbitai review` on PRs that warrant
+  a second opinion (free-tier limit is roughly one review per hour — spend it on the
+  important PRs).
+- Treat bot findings as hypotheses, not verdicts. Verify factual claims (package
+  versions, API existence, release status) against authoritative sources before
+  acting — bot reviewers have shipped confidently wrong claims here before. Apply
+  what holds up; rebut what doesn't, with evidence, in a PR comment.
+
 ## Security & boundaries
 
 - Never print, log, or commit secrets. Local secrets live only in `.env` (gitignored).

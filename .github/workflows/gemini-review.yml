@@ -1,0 +1,140 @@
+name: 'CI: Gemini Review'
+
+# Automated PR review via the official run-gemini-cli action (replaces the
+# consumer Gemini Code Assist GitHub app, sunset 2026-07-17). Ported from
+# rabestro/dicechess-engine-scala, where this setup is battle-tested.
+# - Reviews every non-fork PR on open, reopen, new pushes (synchronize), and
+#   when a draft is marked ready. Fork PRs are excluded (see the job `if`).
+# - Auth: Vertex AI via Workload Identity Federation (keyless). Usage bills to
+#   the Google Cloud project's billing account (currently running on the
+#   new-registration trial credit) — the AI Studio API-key path cannot use
+#   those credits (prepay-only), so we use Vertex AI instead. When the credit
+#   runs out, the planned fallback is the free-tier AI Studio key: replace the
+#   gcp_*/use_vertex_ai inputs below with
+#   `gemini_api_key: ${{ secrets.GEMINI_API_KEY }}` and drop the vars guard.
+# - Provider/SA/project/location come from these repo variables, set once by
+#   an operator (GCP side lives outside this repo): GCP_WIF_PROVIDER,
+#   SERVICE_ACCOUNT_EMAIL, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION,
+#   GOOGLE_GENAI_USE_VERTEXAI. Until they are set, the job skips itself (see
+#   the `if` below) instead of failing every PR.
+# - Model: GEMINI_MODEL repo variable. Debug: GEMINI_DEBUG=true streams logs
+#   and uploads stdout/stderr artifacts.
+# - The review follows repo conventions: the CLI loads AGENTS.md via the
+#   context.fileName setting below.
+# - The prompt drives the GitHub MCP server v0.27.0 tools directly.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs are excluded: WIF id-tokens are not minted for forks, and fork
+    # code must never be checked out with workspace trust enabled. The second
+    # clause keeps the job silently skipped until the operator has configured
+    # the Vertex/WIF repo variables. To re-review without a new commit,
+    # toggle the PR draft/ready state.
+    if: github.event.pull_request.head.repo.fork == false && vars.GCP_WIF_PROVIDER != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run Gemini pull request review
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          # Vertex AI via Workload Identity Federation (keyless).
+          use_vertex_ai: ${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}
+          gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
+          gcp_project_id: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          gcp_location: ${{ vars.GOOGLE_CLOUD_LOCATION }}
+          gemini_model: ${{ vars.GEMINI_MODEL }}
+          gemini_debug: ${{ vars.GEMINI_DEBUG == 'true' }}
+          upload_artifacts: ${{ vars.GEMINI_DEBUG == 'true' }}
+          workflow_name: gemini-review
+          github_pr_number: ${{ github.event.pull_request.number }}
+          # NOTE: this settings block is written to .gemini/settings.json for the
+          # run and REPLACES the committed one — keep context.fileName in sync
+          # with the repo convention (AGENTS.md is canonical).
+          settings: |-
+            {
+              "context": {
+                "fileName": ["AGENTS.md", "GEMINI.md"]
+              },
+              "model": {
+                "maxSessionTurns": 50
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "pull_request_read",
+                    "pull_request_review_write",
+                    "add_comment_to_pending_review"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              }
+            }
+          prompt: |-
+            You are reviewing a GitHub pull request.
+
+            Repository: ${{ github.repository }}
+            Pull request number: ${{ github.event.pull_request.number }}
+
+            Your review criteria are this repository's conventions, already loaded
+            into your context from AGENTS.md: apply its code conventions, testing
+            conventions, gotchas, and security boundaries. Report only findings a
+            maintainer would act on: real bugs, contract or invariant violations,
+            security issues, missing tests for new behaviour, and documented-gotcha
+            violations. Do not comment on formatting the toolchain enforces, do not
+            restate the diff, and do not praise.
+
+            Follow EXACTLY this tool sequence (GitHub MCP server tools):
+            1. pull_request_read with method "get" — read the PR title and description.
+            2. pull_request_read with method "get_diff" — get the full diff.
+            3. Analyse the diff against the review criteria above.
+            4. pull_request_review_write with method "create" — open a pending review.
+            5. For EACH finding: add_comment_to_pending_review with:
+               - path: the file path from the diff
+               - line: the line number in the NEW file version; side "RIGHT"
+                 (use the OLD version line and side "LEFT" only for pure deletions)
+               - subjectType: "LINE"
+               - body: "[HIGH|MEDIUM|LOW] <concise finding>. <why it matters / what
+                 to do>" — add a fenced ```suggestion block only when you are
+                 certain of the exact replacement lines.
+            6. pull_request_review_write with method "submit_pending" with
+               event "COMMENT" (NEVER "APPROVE" or "REQUEST_CHANGES") and a body
+               containing a 2-4 sentence summary: overall verdict, main risks,
+               anything you could not verify. Submit this review even when you
+               have zero findings — then the summary is a short LGTM note.
+
+            Hard rules: never attempt shell commands or file edits; if a tool call
+            fails, retry once, then submit the pending review with what you have,
+            stating the failure in the summary. Write everything in English.
