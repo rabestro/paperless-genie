@@ -3,7 +3,7 @@
 An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity SDK** (`google-antigravity`).
 
 [![Quality Checks](https://github.com/rabestro/paperless-genie/actions/workflows/ci.yaml/badge.svg)](https://github.com/rabestro/paperless-genie/actions/workflows/ci.yaml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 `paperless-genie` acts as an intelligent, conversational interface to your Paperless-ngx document archive. It runs completely conversational and doesn't require mounting local files on the server. It supports multiple users, routing actions to Paperless-ngx dynamically using the corresponding user's API token.
 
@@ -112,4 +112,8 @@ sudo systemctl enable paperless-genie
 
 ## 📝 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+See the [LICENSE](LICENSE) file for details.
+
+This means that if you deploy a modified version of this bot as a network service,
+you must make your modified source code publicly available under the same license.

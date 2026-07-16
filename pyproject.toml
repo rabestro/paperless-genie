@@ -8,14 +8,14 @@ version = "0.1.0"
 description = "🧞 AI-powered Telegram bot for Paperless-ngx — chat with your document archive, upload and process documents, set metadata, and search — all from Telegram."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 authors = [
   { name = "Jegors Čemisovs", email = "jegors.cemisovs@gmail.com" },
 ]
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
