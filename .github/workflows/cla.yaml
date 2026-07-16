@@ -1,7 +1,13 @@
 name: "CI: CLA"
 
+# pull_request_target (not pull_request) is deliberate: the workflow LOGIC then
+# always comes from the base branch, so a pull request cannot edit this file to
+# neuter the check. The signature registry is still read from the PR head via
+# the API below — it is pure data (parsed as JSON, never executed), and reading
+# it from the untrusted side is exactly the point: signing happens in the
+# contributor's first pull request. No code from the PR is checked out or run.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -11,9 +17,6 @@ jobs:
   cla-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
       - name: Verify the PR author has signed the CLA
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -27,14 +30,20 @@ jobs:
               console.log(`@${author} is a bot account — CLA not required.`);
               return;
             }
-            // The checkout above is the PR merge commit, so an entry added in this
-            // same pull request counts — signing is part of the first contribution.
+            // refs/pull/N/head is the PR head, so an entry added in this same
+            // pull request counts — signing is part of the first contribution.
             const file = '.github/cla-signatures.json';
             let registry;
             try {
-              registry = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+              const { data } = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: file,
+                ref: `refs/pull/${context.payload.pull_request.number}/head`,
+              });
+              registry = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
             } catch (error) {
-              core.setFailed(`Cannot read ${file}: ${error.message}`);
+              core.setFailed(`Cannot read ${file} from the PR head: ${error.message}`);
               return;
             }
             const current = registry.claVersion;
