@@ -471,6 +471,54 @@ async def _upload_and_wait_for_ocr(
         raise TimeoutError("Timed out waiting for document processing / OCR to complete.")
 
 
+# Process plumbing forwarded to the MCP subprocess in addition to the
+# user-scoped Paperless credentials. Deliberately excludes bot-level secrets
+# (TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, PAPERLESS_USER_TOKENS) so the child
+# process never sees the Telegram bot token, the Gemini key, or other users'
+# Paperless tokens.
+_MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    # Proxy/TLS plumbing so the subprocess can reach Paperless-ngx (and, today,
+    # the npm registry for `npx`) from behind a proxy or with a self-signed /
+    # internal CA certificate — common in self-hosted Paperless-ngx setups.
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "NODE_EXTRA_CA_CERTS",
+)
+
+
+def _build_mcp_env(user_token: str) -> dict[str, str]:
+    """Builds the environment for the Paperless MCP subprocess.
+
+    Only an explicit allowlist of process plumbing is forwarded from the
+    bot's own environment; everything else — including secrets unrelated to
+    this request — is left out.
+
+    Args:
+        user_token: Paperless-ngx API token of the requesting user.
+
+    Returns:
+        Environment mapping to pass to the MCP subprocess.
+    """
+    env: dict[str, str] = {}
+    for key in _MCP_ENV_PASSTHROUGH:
+        value = os.environ.get(key)
+        if value is not None:
+            env[key] = value
+    env["PAPERLESS_URL"] = Config.PAPERLESS_URL
+    env["PAPERLESS_API_TOKEN"] = user_token
+    env["PAPERLESS_API_KEY"] = user_token
+    return env
+
+
 async def _archive_file(
     *,
     file_bytes: bytes,
@@ -507,14 +555,7 @@ async def _archive_file(
             message_id=status_message_id,
         )
 
-        mcp_env = {
-            "PAPERLESS_URL": Config.PAPERLESS_URL,
-            "PAPERLESS_API_TOKEN": user_token,
-            "PAPERLESS_API_KEY": user_token,
-        }
-        for k, v in os.environ.items():
-            if k not in mcp_env:
-                mcp_env[k] = v
+        mcp_env = _build_mcp_env(user_token)
 
         mcp_server = McpStdioServer(
             name="paperless-ngx",
@@ -807,14 +848,7 @@ async def handle_text_query(message: Message) -> None:
     try:
         user_token = Config.get_token_for_user(message.from_user.id)
 
-        mcp_env = {
-            "PAPERLESS_URL": Config.PAPERLESS_URL,
-            "PAPERLESS_API_TOKEN": user_token,
-            "PAPERLESS_API_KEY": user_token,
-        }
-        for k, v in os.environ.items():
-            if k not in mcp_env:
-                mcp_env[k] = v
+        mcp_env = _build_mcp_env(user_token)
 
         mcp_server = McpStdioServer(
             name="paperless-ngx",
