@@ -554,6 +554,12 @@ async def handle_doc_button(call: CallbackQuery) -> None:
         await bot.answer_callback_query(call.id, "⛔ Not authorized.")
         return
 
+    # Narrow types: both fields are guaranteed non-None for real button presses
+    if not call.data or not call.message or not hasattr(call.message, "chat"):
+        await bot.answer_callback_query(call.id, "⚠️ Invalid callback data.")
+        return
+
+    chat_id = call.message.chat.id
     doc_id = int(call.data.split(":", 1)[1])
     await bot.answer_callback_query(call.id, f"⬇️ Fetching document #{doc_id}…")
 
@@ -563,7 +569,7 @@ async def handle_doc_button(call: CallbackQuery) -> None:
         info = await _fetch_document_info(doc_id, user_token)
         if info is None:
             await bot.send_message(
-                call.message.chat.id,
+                chat_id,
                 f"❌ Document #{doc_id} not found in the archive.",
             )
             return
@@ -578,7 +584,7 @@ async def handle_doc_button(call: CallbackQuery) -> None:
         pdf_bytes = await _download_document_pdf(doc_id, user_token)
 
         await bot.send_document(
-            call.message.chat.id,
+            chat_id,
             document=(original_name, pdf_bytes),
             caption=caption,
         )
@@ -592,7 +598,7 @@ async def handle_doc_button(call: CallbackQuery) -> None:
     except Exception as e:
         logger.exception("Error fetching document #%d via inline button", doc_id)
         await bot.send_message(
-            call.message.chat.id,
+            chat_id,
             f"❌ Failed to fetch document #{doc_id}: {e}",
         )
 
