@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paperless-genie"
-version = "0.2.0"
+version = "0.2.1"
 description = "🧞 AI-powered Telegram bot for Paperless-ngx — chat with your document archive, upload and process documents, set metadata, and search — all from Telegram."
 readme = "README.md"
 requires-python = ">=3.14"
