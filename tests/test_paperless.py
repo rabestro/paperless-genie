@@ -196,6 +196,23 @@ async def test_upload_transient_errors_recover() -> None:
 
 
 @respx.mock
+async def test_upload_recovers_from_malformed_task_record() -> None:
+    # A task record that fails validation (non-coercible related_document) is a
+    # transient failure, not a crash: the loop retries and succeeds next poll.
+    respx.post(f"{BASE}/api/documents/post_document/").mock(return_value=_response("task-1"))
+    respx.get(url__startswith=f"{BASE}/api/tasks/").mock(
+        side_effect=[
+            _response([{"status": "STARTED", "related_document": "not-an-int"}]),
+            _response([{"status": "SUCCESS", "related_document": 7}]),
+        ]
+    )
+    doc_id = await _client().upload_and_wait_for_ocr(
+        file_bytes=b"x", file_name="x.pdf", poll_interval=0.01
+    )
+    assert doc_id == 7
+
+
+@respx.mock
 async def test_upload_gives_up_after_five_consecutive_failures() -> None:
     respx.post(f"{BASE}/api/documents/post_document/").mock(return_value=_response("task-1"))
     respx.get(url__startswith=f"{BASE}/api/tasks/").mock(return_value=httpx.Response(503))

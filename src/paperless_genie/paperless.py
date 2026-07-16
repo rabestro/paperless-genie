@@ -238,11 +238,17 @@ class PaperlessClient:
             consecutive_failures = 0
             while (datetime.now(UTC) - start_time).total_seconds() < max_wait:
                 await asyncio.sleep(poll_interval)
+                # Fetch, decode, and validate the task record inside the
+                # transient-error guard. A malformed record mid-processing
+                # (pydantic.ValidationError is a ValueError) is treated as a
+                # transient failure and retried, exactly like an HTTP or JSON
+                # error — it must not crash the whole upload.
                 try:
                     task_response = await client.get(tasks_url, headers=self._headers)
                     task_response.raise_for_status()
-                    task_data = task_response.json()
-                    consecutive_failures = 0  # reset on success
+                    tasks = _normalize_tasks(task_response.json())
+                    task = PaperlessTask.model_validate(tasks[0]) if tasks else None
+                    consecutive_failures = 0  # reset on a well-formed response
                 except (httpx.HTTPError, ValueError) as err:
                     consecutive_failures += 1
                     logger.warning(
@@ -257,11 +263,12 @@ class PaperlessClient:
                         ) from err
                     continue
 
-                tasks = _normalize_tasks(task_data)
-                if not tasks:
+                if task is None:
                     continue  # task not registered yet
 
-                task = PaperlessTask.model_validate(tasks[0])
+                # Terminal-state handling stays OUTSIDE the try: the ValueErrors
+                # and DuplicateDocumentError raised below are deliberate, fatal
+                # signals and must propagate, not be swallowed as transient.
                 status = task.status.upper()
 
                 if status == "SUCCESS":
