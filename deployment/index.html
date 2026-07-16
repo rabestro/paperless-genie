@@ -860,8 +860,8 @@
 <pre><code class="language-bash"># Install tools
 mise install
 
-# Sync dependencies
-uv sync --all-extras
+# Sync runtime dependencies (dev tooling is not needed on a server)
+uv sync --no-dev
 </code></pre>
 <h3 id="2-create-service-file">2. Create Service File</h3>
 <p>Create the systemd configuration file at <code>/etc/systemd/system/paperless-genie.service</code> (replace <code>your-username</code> and directories as needed):</p>
