@@ -1,5 +1,5 @@
 # Use Python slim base image
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # OCI standard image labels (static metadata)
 # Dynamic labels — version, created, revision — are injected by CI (docker/metadata-action)

@@ -4,7 +4,7 @@ This document defines the rules, stack, standards, and workflow conventions for 
 
 ## Stack & Architecture
 
-- **Core**: Python 3.12+ (managed with `uv` package manager).
+- **Core**: Python 3.14, the single supported version — no compatibility matrix (managed with `uv` package manager).
 - **Telegram Bot**: Async Telegram Bot (`pyTelegramBotAPI`/`telebot.async_telebot`).
 - **AI Integration**: Google Antigravity SDK (`Agent`, `LocalAgentConfig`, `CapabilitiesConfig`).
 - **Paperless MCP tools**: [`@baruchiro/paperless-mcp`](https://github.com/baruchiro/paperless-mcp) (Node.js 24+),

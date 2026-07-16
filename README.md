@@ -38,7 +38,7 @@ PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_u
 Make sure you have `mise` installed on your machine.
 
 ```bash
-# Install Python 3.13 and uv
+# Install Python 3.14 and uv
 mise install
 
 # Install project dependencies
