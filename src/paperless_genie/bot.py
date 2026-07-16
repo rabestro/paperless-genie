@@ -7,9 +7,7 @@ import re
 import shutil
 import tempfile
 from collections import defaultdict
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import ClassVar
 
 import httpx
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
@@ -18,6 +16,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from paperless_genie.config import Config
+from paperless_genie.conversation import ConversationHistory
 
 
 class DuplicateDocumentError(Exception):
@@ -68,6 +67,41 @@ def _clean_agent_response(text: str) -> str:
     return text.strip()
 
 
+def _extract_doc_ids(text: str) -> list[int]:
+    """Returns unique document IDs from [#ID] markers, in order of first appearance.
+
+    Args:
+        text: Agent response text, possibly containing [#ID] markers.
+
+    Returns:
+        Deduplicated document IDs, ordered by where they first appear.
+    """
+    seen: set[int] = set()
+    doc_ids: list[int] = []
+    for m in _DOC_TAG_RE.finditer(text):
+        doc_id = int(m.group(1))
+        if doc_id not in seen:
+            seen.add(doc_id)
+            doc_ids.append(doc_id)
+    return doc_ids
+
+
+def _chunk_text(text: str, limit: int = _TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+    """Splits text into limit-sized chunks for Telegram delivery.
+
+    Args:
+        text: The text to split.
+        limit: Maximum characters per chunk.
+
+    Returns:
+        At least one chunk; text at or under the limit (including empty text)
+        comes back as a single chunk.
+    """
+    if len(text) <= limit:
+        return [text]
+    return [text[i : i + limit] for i in range(0, len(text), limit)]
+
+
 def _build_doc_keyboard(
     doc_ids: list[int],
 ) -> InlineKeyboardMarkup | None:
@@ -106,77 +140,16 @@ async def _send_with_doc_buttons(
         chat_id: The Telegram chat to send to.
         text: Agent response text, possibly containing [#ID] markers.
     """
-    # Extract unique doc IDs preserving order of first appearance
-    seen: set[int] = set()
-    doc_ids: list[int] = []
-    for m in _DOC_TAG_RE.finditer(text):
-        doc_id = int(m.group(1))
-        if doc_id not in seen:
-            seen.add(doc_id)
-            doc_ids.append(doc_id)
-
+    doc_ids = _extract_doc_ids(text)
     # Strip [#ID] markers from the visible text
     clean_text = _DOC_TAG_RE.sub("", text).strip()
-
     keyboard = _build_doc_keyboard(doc_ids)
 
-    if len(clean_text) > _TELEGRAM_MESSAGE_LIMIT:
-        chunks = [
-            clean_text[i : i + _TELEGRAM_MESSAGE_LIMIT]
-            for i in range(0, len(clean_text), _TELEGRAM_MESSAGE_LIMIT)
-        ]
-        for chunk in chunks[:-1]:
-            await bot.send_message(chat_id, chunk)
-        # Attach buttons only to the last chunk
-        await bot.send_message(chat_id, chunks[-1], reply_markup=keyboard)
-    else:
-        await bot.send_message(chat_id, clean_text, reply_markup=keyboard)
-
-
-@dataclass
-class ConversationHistory:
-    """Stores the recent conversation turns for a single user.
-
-    Each turn is a (user_message, bot_reply) pair. Older turns are dropped
-    once *max_turns* is exceeded so token usage stays bounded.
-    """
-
-    MAX_TURNS: ClassVar[int] = 10
-
-    turns: list[tuple[str, str]] = field(default_factory=list)
-
-    def add(self, user_msg: str, bot_reply: str) -> None:
-        """Appends a new turn and trims the oldest if needed."""
-        self.turns.append((user_msg, bot_reply))
-        if len(self.turns) > self.MAX_TURNS:
-            self.turns.pop(0)
-
-    def build_context(self, current_user_msg: str) -> str:
-        """Returns a prompt string that includes history + the current message.
-
-        Args:
-            current_user_msg: The latest message from the user.
-
-        Returns:
-            Full prompt text with prior conversation context prepended.
-        """
-        if not self.turns:
-            return f"User: {current_user_msg}"
-
-        lines: list[str] = ["Below is the conversation history (oldest first):"]
-        for user, bot in self.turns:
-            lines.append(f"User: {user}")
-            lines.append(f"Assistant: {bot}")
-        lines.append("")
-        lines.append(f"User: {current_user_msg}")
-        lines.append(
-            "Now answer the last User message, taking the conversation history into account."
-        )
-        return "\n".join(lines)
-
-    def clear(self) -> None:
-        """Resets the conversation history."""
-        self.turns.clear()
+    chunks = _chunk_text(clean_text)
+    for chunk in chunks[:-1]:
+        await bot.send_message(chat_id, chunk)
+    # Attach buttons only to the last chunk
+    await bot.send_message(chat_id, chunks[-1], reply_markup=keyboard)
 
 
 # Per-user conversation history (lives as long as the bot process is running)
@@ -675,11 +648,8 @@ async def _archive_file(
                 message_id=status_message_id,
             )
 
-            if len(agent_report) > _TELEGRAM_MESSAGE_LIMIT:
-                for i in range(0, len(agent_report), _TELEGRAM_MESSAGE_LIMIT):
-                    await bot.send_message(chat_id, agent_report[i : i + _TELEGRAM_MESSAGE_LIMIT])
-            else:
-                await bot.send_message(chat_id, agent_report)
+            for chunk in _chunk_text(agent_report):
+                await bot.send_message(chat_id, chunk)
 
     except DuplicateDocumentError as e:
         logger.info("Duplicate document detected for file %s: ID %d", file_name, e.doc_id)
