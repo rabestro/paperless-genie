@@ -476,7 +476,23 @@ async def _upload_and_wait_for_ocr(
 # (TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, PAPERLESS_USER_TOKENS) so the child
 # process never sees the Telegram bot token, the Gemini key, or other users'
 # Paperless tokens.
-_MCP_ENV_PASSTHROUGH: tuple[str, ...] = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+_MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    # Proxy/TLS plumbing so the subprocess can reach Paperless-ngx (and, today,
+    # the npm registry for `npx`) from behind a proxy or with a self-signed /
+    # internal CA certificate — common in self-hosted Paperless-ngx setups.
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "NODE_EXTRA_CA_CERTS",
+)
 
 
 def _build_mcp_env(user_token: str) -> dict[str, str]:

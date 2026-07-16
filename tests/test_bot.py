@@ -3,7 +3,20 @@ import pytest
 from paperless_genie import bot as bot_module
 from paperless_genie.config import Config
 
-_ALLOWED_MCP_ENV_KEYS = {"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"} | {
+_ALLOWED_MCP_ENV_KEYS = {
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "NODE_EXTRA_CA_CERTS",
+} | {
     "PAPERLESS_URL",
     "PAPERLESS_API_TOKEN",
     "PAPERLESS_API_KEY",
@@ -28,12 +41,16 @@ def test_build_mcp_env_never_contains_bot_secrets(monkeypatch: pytest.MonkeyPatc
 def test_build_mcp_env_forwards_allowlisted_plumbing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     monkeypatch.setenv("HOME", "/home/genie")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:8080")
+    monkeypatch.setenv("NODE_EXTRA_CA_CERTS", "/etc/ssl/internal-ca.pem")
     monkeypatch.setattr(Config, "PAPERLESS_URL", "http://paperless.example")
 
     env = bot_module._build_mcp_env("token")
 
     assert env["PATH"] == "/usr/bin:/bin"
     assert env["HOME"] == "/home/genie"
+    assert env["HTTPS_PROXY"] == "http://proxy.example:8080"
+    assert env["NODE_EXTRA_CA_CERTS"] == "/etc/ssl/internal-ca.pem"
 
 
 def test_build_mcp_env_omits_absent_plumbing_vars(monkeypatch: pytest.MonkeyPatch) -> None:
