@@ -28,7 +28,17 @@ dependencies = [
   "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
+[project.urls]
+Homepage = "https://jc.id.lv/paperless-genie/"
+Documentation = "https://jc.id.lv/paperless-genie/"
+Repository = "https://github.com/rabestro/paperless-genie"
+Issues = "https://github.com/rabestro/paperless-genie/issues"
+Changelog = "https://github.com/rabestro/paperless-genie/releases"
+
+# PEP 735 dependency groups: development-only dependencies, not published as
+# package extras. `uv sync` installs the `dev` group by default; add the docs
+# tooling with `--group docs` (or everything with `--all-groups`).
+[dependency-groups]
 dev = [
   "ruff>=0.9.0",
   "mypy>=1.14.0",

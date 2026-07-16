@@ -36,8 +36,8 @@ Install project dependencies using `uv` and `mise`:
 # Install tools
 mise install
 
-# Sync dependencies
-uv sync --all-extras
+# Sync runtime dependencies (dev tooling is not needed on a server)
+uv sync --no-dev
 ```
 
 ### 2. Create Service File

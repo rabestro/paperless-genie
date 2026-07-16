@@ -961,7 +961,7 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pre-commit" },
@@ -978,17 +978,22 @@ docs = [
 requires-dist = [
     { name = "google-antigravity", specifier = ">=0.1.0" },
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytelegrambotapi", specifier = ">=4.20.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
 ]
-provides-extras = ["dev", "docs"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.14.0" },
+    { name = "pre-commit", specifier = ">=4.0.0" },
+    { name = "pytest", specifier = ">=8.3.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "ruff", specifier = ">=0.9.0" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+]
 
 [[package]]
 name = "pathspec"
