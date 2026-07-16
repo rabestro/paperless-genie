@@ -1,6 +1,6 @@
 services:
   bot:
-    build: .
+    image: ghcr.io/rabestro/paperless-genie:latest
     container_name: paperless-genie
     restart: always
     environment:

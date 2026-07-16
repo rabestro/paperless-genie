@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -14,6 +15,15 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from paperless_genie.config import Config
+
+
+class DuplicateDocumentError(Exception):
+    """Raised when a document being uploaded is identified as a duplicate."""
+
+    def __init__(self, doc_id: int):
+        super().__init__(f"Duplicate of document #{doc_id}")
+        self.doc_id = doc_id
+
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +346,116 @@ async def handle_get(message: Message) -> None:
         )
 
 
+async def _upload_and_wait_for_ocr(
+    *,
+    file_bytes: bytes,
+    file_name: str,
+    user_token: str,
+    chat_id: int,
+    status_message_id: int,
+) -> int:
+    """Uploads document to Paperless-ngx and polls until OCR is complete.
+
+    Returns:
+        The created document ID.
+
+    Raises:
+        DuplicateDocumentError: If the document is identified as a duplicate.
+        ValueError: On other processing failures.
+        TimeoutError: On timeout.
+    """
+    url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/documents/post_document/"
+    headers = {"Authorization": f"Token {user_token}"}
+    files = {"document": (file_name, file_bytes)}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        await bot.edit_message_text(
+            "📤 Uploading document to Paperless-ngx...",
+            chat_id=chat_id,
+            message_id=status_message_id,
+        )
+        response = await client.post(url, headers=headers, files=files)
+        response.raise_for_status()
+
+        # Parse task ID (which is sometimes a raw JSON string
+        # e.g. "uuid" or dict {"task_id": "uuid"})
+        try:
+            data = response.json()
+            if isinstance(data, dict):
+                task_id = data.get("task_id")
+            else:
+                task_id = str(data)
+        except Exception:
+            task_id = response.text.strip().strip('"')
+
+        if not task_id:
+            raise ValueError(f"Failed to retrieve task ID. Response: {response.text}")
+
+        # Poll the tasks endpoint
+        tasks_url = f"{Config.PAPERLESS_URL.rstrip('/')}/api/tasks/?task_id={task_id}"
+
+        await bot.edit_message_text(
+            "⚙️ Document queued. Waiting for OCR & processing...",
+            chat_id=chat_id,
+            message_id=status_message_id,
+        )
+
+        max_wait = 180  # 3 minutes maximum wait time
+        start_time = datetime.now(UTC)
+
+        while (datetime.now(UTC) - start_time).total_seconds() < max_wait:
+            await asyncio.sleep(3)
+            task_response = await client.get(tasks_url, headers=headers)
+            task_response.raise_for_status()
+
+            task_data = task_response.json()
+            # Handle list or dict results
+            if isinstance(task_data, dict) and "results" in task_data:
+                tasks = task_data["results"]
+            elif isinstance(task_data, list):
+                tasks = task_data
+            else:
+                tasks = []
+
+            if not tasks:
+                # Task not found in tasks list yet
+                continue
+
+            task = tasks[0]
+            status = str(task.get("status") or "").upper()
+
+            if status == "SUCCESS":
+                related_doc = task.get("related_document")
+                if related_doc is not None:
+                    return int(related_doc)
+                # Fallback: parse from result text
+                result_text = str(task.get("result") or "")
+                match = re.search(r"document id (\d+) created", result_text)
+                if match:
+                    return int(match.group(1))
+                raise ValueError(
+                    f"Task succeeded but related_document ID not found. Result: {result_text}"
+                )
+
+            elif status in ("FAILED", "FAILURE"):
+                result_text = str(task.get("result") or "")
+                if (
+                    "is a duplicate of" in result_text.lower()
+                    or "duplicate" in result_text.lower()
+                ):
+                    # Parse document ID from result, e.g. "duplicate of #416"
+                    match = re.search(r"#?(\d+)", result_text)
+                    if match:
+                        raise DuplicateDocumentError(doc_id=int(match.group(1)))
+                    # Fallback pattern
+                    match = re.search(r"id\s+(\d+)", result_text)
+                    if match:
+                        raise DuplicateDocumentError(doc_id=int(match.group(1)))
+                raise ValueError(f"Document processing failed: {result_text}")
+
+        raise TimeoutError("Timed out waiting for document processing / OCR to complete.")
+
+
 async def _archive_file(
     *,
     file_bytes: bytes,
@@ -344,26 +464,30 @@ async def _archive_file(
     chat_id: int,
     status_message_id: int,
 ) -> None:
-    """Downloads, saves, and archives a file using the AI agent.
+    """Uploads, polls for OCR, and archives a file using the AI agent.
 
     This helper is shared by the document and photo handlers so that the
     archiving workflow is defined in a single place.
 
     Args:
         file_bytes: Raw bytes of the file to archive.
-        file_name: Original filename (used to save the temp file).
+        file_name: Original filename.
         user_token: Paperless-ngx API token for the requesting user.
         chat_id: Telegram chat to send status and report messages to.
         status_message_id: ID of the 'processing…' status message to edit.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        local_file_path = os.path.join(temp_dir, file_name)
-        with open(local_file_path, "wb") as fh:
-            fh.write(file_bytes)
+    try:
+        # 1. Upload to Paperless-ngx and wait for OCR in python
+        doc_id = await _upload_and_wait_for_ocr(
+            file_bytes=file_bytes,
+            file_name=file_name,
+            user_token=user_token,
+            chat_id=chat_id,
+            status_message_id=status_message_id,
+        )
 
-        logger.info("Saved temporary file to %s", local_file_path)
         await bot.edit_message_text(
-            "🧠 Analyzing the document with AI…",
+            "🧠 Analyzing the document with AI...",
             chat_id=chat_id,
             message_id=status_message_id,
         )
@@ -385,21 +509,23 @@ async def _archive_file(
         )
 
         system_instructions = (
-            "You are an expert archiving assistant for the family archive in Paperless-ngx. "
-            "Always adhere to these rules when archiving documents:\n"
-            "1. Search the database to check if a document already exists "
-            "(by content or metadata).\n"
-            "2. If it exists, notify the user and stop.\n"
-            "3. If it does not exist, upload it using post_document.\n"
-            "4. Wait for OCR to complete, then update its metadata "
+            "You are an expert archiving assistant for the personal archive in Paperless-ngx. "
+            "You are processing a document that has already been successfully uploaded. "
+            "Its ID is provided in the prompt.\n"
+            "Adhere to these rules when updating this document:\n"
+            "1. Call `get_document` with the given ID to fetch its text content and properties.\n"
+            "2. Based on the document's text, determine the correct metadata "
             "(Title, Created Date, Correspondent, Document Type).\n"
-            "5. Assign tags: '👥 Family' (ID 11) for family documents, "
-            "'Jane' (ID 12) for Jane Doe, "
-            "'🏛️ History' (ID 5) for historical documents, "
+            "3. Call `update_document` to update the document's Title, "
+            "Created (in YYYY-MM-DD), Correspondent, and Document Type.\n"
+            "4. Call `update_document` to assign tags: '👥 Family' (ID 11) for family documents, "
+            "'Jane' (ID 12) for Jane Doe, '🏛️ History' (ID 5) for historical documents, "
             "'🎓 Education' (ID 18) for certificates/diplomas.\n"
-            "6. Remove any auto-assigned tags like '📥 Inbox' (ID 3).\n"
-            "7. Add a structured note describing the document, owner, and key details.\n"
-            "8. Output a final report describing what actions were done.\n"
+            "5. Remove any auto-assigned tags like '📥 Inbox' (ID 3) "
+            "by excluding them from the tags list.\n"
+            "6. Call `create_document_note` to add a structured note "
+            "describing the document, owner, key details, and historical context.\n"
+            "7. Output a final report describing what actions were done.\n"
             "IMPORTANT LANGUAGE RULE:\n"
             "- Detect the language of the document's content and write the note "
             "and report in that same language.\n"
@@ -413,40 +539,85 @@ async def _archive_file(
             "Avoid Markdown syntax like **bold** or [text](url)."
         )
 
-        agent_config = LocalAgentConfig(
-            system_instructions=system_instructions,
-            mcp_servers=[mcp_server],
-            capabilities=CapabilitiesConfig(allow_file_write=True, allow_command_execution=True),
-            save_dir=temp_dir,
-            model=Config.GEMINI_MODEL,
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent_config = LocalAgentConfig(
+                system_instructions=system_instructions,
+                mcp_servers=[mcp_server],
+                capabilities=CapabilitiesConfig(
+                    allow_file_write=False, allow_command_execution=False
+                ),
+                save_dir=temp_dir,
+                model=Config.GEMINI_MODEL,
+            )
 
-        prompt = (
-            f"We have a new document to archive:\n"
-            f"Path: {local_file_path}\n"
-            f"Original Filename: {file_name}\n\n"
-            f"Please analyze, upload and categorize this document according to the guidelines."
-        )
+            prompt = (
+                f"We have a new document to archive in Paperless-ngx.\n"
+                f"Document ID: {doc_id}\n"
+                f"Original Filename: {file_name}\n\n"
+                f"Please retrieve this document using `get_document` with ID {doc_id}, "
+                f"analyze its content, assign metadata and tags, write a structured note, "
+                f"and output a final report."
+            )
 
-        async with Agent(agent_config) as agent:
-            response = await agent.chat(prompt)
-            agent_report = ""
-            async for token in response:
-                agent_report += token
+            async with Agent(agent_config) as agent:
+                response = await agent.chat(prompt)
+                agent_report = ""
+                async for token in response:
+                    agent_report += token
 
-        agent_report = _clean_agent_response(agent_report)
+            agent_report = _clean_agent_response(agent_report)
+
+            await bot.edit_message_text(
+                "✅ Processing completed!",
+                chat_id=chat_id,
+                message_id=status_message_id,
+            )
+
+            if len(agent_report) > 4000:  # noqa: PLR2004
+                for i in range(0, len(agent_report), 4000):
+                    await bot.send_message(chat_id, agent_report[i : i + 4000])
+            else:
+                await bot.send_message(chat_id, agent_report)
+
+    except DuplicateDocumentError as e:
+        logger.info("Duplicate document detected for file %s: ID %d", file_name, e.doc_id)
+        try:
+            info = await _fetch_document_info(e.doc_id, user_token)
+            if info:
+                title = info.get("title") or "Untitled"
+                created = info.get("created") or info.get("created_date") or ""
+
+                msg = (
+                    f"⚠️ Этот документ уже существует в архиве под номером #{e.doc_id}:\n\n"
+                    f"📄 **{title}**"
+                )
+                if created:
+                    msg += f"\n📅 {created}"
+
+                keyboard = _build_doc_keyboard([e.doc_id])
+                await bot.edit_message_text(
+                    msg,
+                    chat_id=chat_id,
+                    message_id=status_message_id,
+                    reply_markup=keyboard,
+                )
+                return
+        except Exception:
+            logger.exception("Error fetching details for duplicate document %d", e.doc_id)
 
         await bot.edit_message_text(
-            "✅ Processing completed!",
+            f"⚠️ Этот документ уже существует в архиве под номером #{e.doc_id}.",
             chat_id=chat_id,
             message_id=status_message_id,
         )
 
-        if len(agent_report) > 4000:  # noqa: PLR2004
-            for i in range(0, len(agent_report), 4000):
-                await bot.send_message(chat_id, agent_report[i : i + 4000])
-        else:
-            await bot.send_message(chat_id, agent_report)
+    except Exception as e:
+        logger.exception("Error processing document")
+        await bot.edit_message_text(
+            f"❌ An error occurred during processing: {e}",
+            chat_id=chat_id,
+            message_id=status_message_id,
+        )
 
 
 @bot.message_handler(content_types=["document"])
