@@ -1,0 +1,106 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create tags, commits, and GitHub Releases
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Full history needed to read all tags
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Compute next version
+        id: version
+        run: |
+          # Get the latest semver tag, fall back to v0.0.0 if none exist
+          latest=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $latest"
+
+          # Strip the leading 'v' and split into parts
+          version="${latest#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+
+          case "${{ github.event.inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          new_version="${major}.${minor}.${patch}"
+          new_tag="v${new_version}"
+          echo "New version: $new_version  →  tag: $new_tag"
+
+          echo "version=${new_version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${new_tag}"         >> "$GITHUB_OUTPUT"
+          echo "prev_tag=${latest}"     >> "$GITHUB_OUTPUT"
+
+      - name: Update version in pyproject.toml
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
+          echo "pyproject.toml updated:"
+          grep "^version" pyproject.toml
+
+      - name: Commit version bump
+        run: |
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.tag }}"
+          git push origin main
+
+      - name: Create and push tag
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Build release notes
+        id: notes
+        run: |
+          prev="${{ steps.version.outputs.prev_tag }}"
+          tag="${{ steps.version.outputs.tag }}"
+
+          if [ "$prev" = "v0.0.0" ]; then
+            # First release — use the full commit log
+            log=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            log=$(git log --pretty=format:"- %s (%h)" "${prev}..HEAD^")
+          fi
+
+          # Write multi-line notes to file to avoid shell quoting issues
+          {
+            echo "## What's Changed"
+            echo ""
+            echo "$log"
+            echo ""
+            echo "**Full Changelog:** https://github.com/${{ github.repository }}/compare/${prev}...${tag}"
+          } > release_notes.md
+
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Paperless Genie ${{ steps.version.outputs.tag }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
