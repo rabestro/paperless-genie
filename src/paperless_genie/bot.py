@@ -3,16 +3,13 @@
 import logging
 import os
 import re
-import shutil
-import tempfile
 from collections import defaultdict
 from datetime import UTC, datetime
 
-from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
-from google.antigravity.types import McpStdioServer
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from paperless_genie.agent import ARCHIVE_INSTRUCTIONS, SEARCH_INSTRUCTIONS, run_agent
 from paperless_genie.config import Config
 from paperless_genie.conversation import ConversationHistory
 from paperless_genie.paperless import DuplicateDocumentError, PaperlessClient
@@ -27,32 +24,8 @@ SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
 # Telegram caps messages at 4096 characters; 4000 leaves margin for edits/ellipsis.
 _TELEGRAM_MESSAGE_LIMIT = 4000
 
-# Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
-_FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
-# Regex to strip bare file:// URLs
-_BARE_FILE_URL_RE = re.compile(r"file://\S+")
 # Regex to find document ID tags that the agent embeds, e.g. [#42]
 _DOC_TAG_RE = re.compile(r"\[#(\d+)\]")
-
-
-def _clean_agent_response(text: str) -> str:
-    """Removes internal file:// links from the agent response.
-
-    The Antigravity agent sometimes appends file:// URLs that point to
-    temporary internal files. These links are meaningless in Telegram and
-    are stripped out here, keeping only the link label text.
-
-    Args:
-        text: The raw agent response text.
-
-    Returns:
-        Cleaned text suitable for sending to Telegram.
-    """
-    # Replace [Label](file://...) → Label
-    text = _FILE_LINK_RE.sub(r"\1", text)
-    # Remove any remaining bare file:// URLs
-    text = _BARE_FILE_URL_RE.sub("", text)
-    return text.strip()
 
 
 def _extract_doc_ids(text: str) -> list[int]:
@@ -276,93 +249,6 @@ async def handle_get(message: Message) -> None:
         )
 
 
-# Process plumbing forwarded to the MCP subprocess in addition to the
-# user-scoped Paperless credentials. Deliberately excludes bot-level secrets
-# (TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, PAPERLESS_USER_TOKENS) so the child
-# process never sees the Telegram bot token, the Gemini key, or other users'
-# Paperless tokens.
-_MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
-    "PATH",
-    "HOME",
-    "LANG",
-    "LC_ALL",
-    "TMPDIR",
-    # Proxy/TLS plumbing so the subprocess can reach Paperless-ngx (and, today,
-    # the npm registry for `npx`) from behind a proxy or with a self-signed /
-    # internal CA certificate — common in self-hosted Paperless-ngx setups.
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
-    "http_proxy",
-    "https_proxy",
-    "no_proxy",
-    "NODE_EXTRA_CA_CERTS",
-)
-
-
-def _build_mcp_env(user_token: str) -> dict[str, str]:
-    """Builds the environment for the Paperless MCP subprocess.
-
-    Only an explicit allowlist of process plumbing is forwarded from the
-    bot's own environment; everything else — including secrets unrelated to
-    this request — is left out.
-
-    Args:
-        user_token: Paperless-ngx API token of the requesting user.
-
-    Returns:
-        Environment mapping to pass to the MCP subprocess.
-    """
-    env: dict[str, str] = {}
-    for key in _MCP_ENV_PASSTHROUGH:
-        value = os.environ.get(key)
-        if value is not None:
-            env[key] = value
-    env["PAPERLESS_URL"] = Config.PAPERLESS_URL
-    env["PAPERLESS_API_TOKEN"] = user_token
-    env["PAPERLESS_API_KEY"] = user_token
-    return env
-
-
-_MCP_BINARY = "paperless-mcp"
-
-
-def _build_mcp_server(user_token: str) -> McpStdioServer:
-    """Builds the stdio MCP server descriptor for the Paperless-ngx MCP tools.
-
-    Invokes the `paperless-mcp` binary directly rather than through `npx`.
-    The image pre-installs an exact pinned version of the package (see the
-    Dockerfile's PAPERLESS_MCP_VERSION build arg) so this never resolves a
-    package over the network at request time — `npx <pkg>@<version>` cannot
-    guarantee that: once any same-named binary is already on PATH, npx runs
-    it without checking whether it actually matches the requested version.
-
-    Args:
-        user_token: Paperless-ngx API token of the requesting user.
-
-    Returns:
-        Configured McpStdioServer ready to pass to LocalAgentConfig.
-
-    Raises:
-        RuntimeError: If the `paperless-mcp` binary isn't on PATH — expected
-            in local development when the pinned package hasn't been
-            installed yet (see README.md's local setup section).
-    """
-    if shutil.which(_MCP_BINARY) is None:
-        raise RuntimeError(
-            f"'{_MCP_BINARY}' was not found on PATH. Install Node.js 24+ and run "
-            f"'npm install -g @baruchiro/paperless-mcp@<version>' — see README.md's "
-            f"local setup section for the exact pinned version."
-        )
-
-    return McpStdioServer(
-        name="paperless-ngx",
-        command=_MCP_BINARY,
-        args=[],
-        env=_build_mcp_env(user_token),
-    )
-
-
 async def _archive_file(
     *,
     file_bytes: bytes,
@@ -399,79 +285,24 @@ async def _archive_file(
 
         await _report("🧠 Analyzing the document with AI...")
 
-        mcp_server = _build_mcp_server(user_token)
+        prompt = (
+            f"We have a new document to archive in Paperless-ngx.\n"
+            f"Document ID: {doc_id}\n"
+            f"Original Filename: {file_name}\n\n"
+            f"Please retrieve this document using `get_document` with ID {doc_id}, "
+            f"analyze its content, assign metadata and tags, write a structured note, "
+            f"and output a final report."
+        )
+        agent_report = await run_agent(ARCHIVE_INSTRUCTIONS, prompt, user_token)
 
-        system_instructions = (
-            "You are an expert archiving assistant for the personal archive in Paperless-ngx. "
-            "You are processing a document that has already been successfully uploaded. "
-            "Its ID is provided in the prompt.\n"
-            "Adhere to these rules when updating this document:\n"
-            "1. Call `get_document` with the given ID to fetch its text content and properties.\n"
-            "2. Based on the document's text, determine the correct metadata "
-            "(Title, Created Date, Correspondent, Document Type).\n"
-            "3. Call `update_document` to update the document's Title, "
-            "Created (in YYYY-MM-DD), Correspondent, and Document Type.\n"
-            "4. Call `list_tags` to see every tag that exists in this archive "
-            "(their names and IDs). Decide which existing tags match the document's "
-            "content, judging by tag names.\n"
-            "5. Update the document's tags via `update_document`, passing the complete "
-            "final list of tag IDs: the current tags worth keeping, plus the matching "
-            "tags from step 4, excluding any auto-assigned inbox tag (a tag whose name "
-            "contains 'inbox', case-insensitive). Use only tag IDs returned by "
-            "`list_tags` — never guess IDs and never create new tags. If no existing "
-            "tag matches, keep the current tags (minus the inbox tag).\n"
-            "6. Call `create_document_note` to add a structured note "
-            "describing the document, owner, key details, and historical context.\n"
-            "7. Output a final report describing what actions were done.\n"
-            "IMPORTANT LANGUAGE RULE:\n"
-            "- Detect the language of the document's content and write the note "
-            "and report in that same language.\n"
-            "IMPORTANT FORMATTING RULES:\n"
-            "- The response will be sent as a Telegram message. "
-            "Do NOT use markdown links with URLs. "
-            "Do NOT include any file:// or http:// links in the response.\n"
-            "- Refer to documents only by their title and date, for example: "
-            "'John Doe Passport (15.03.1993)'.\n"
-            "- Use plain text and emoji for formatting. "
-            "Avoid Markdown syntax like **bold** or [text](url)."
+        await bot.edit_message_text(
+            "✅ Processing completed!",
+            chat_id=chat_id,
+            message_id=status_message_id,
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            agent_config = LocalAgentConfig(
-                system_instructions=system_instructions,
-                mcp_servers=[mcp_server],
-                capabilities=CapabilitiesConfig(
-                    allow_file_write=False, allow_command_execution=False
-                ),
-                save_dir=temp_dir,
-                model=Config.GEMINI_MODEL,
-            )
-
-            prompt = (
-                f"We have a new document to archive in Paperless-ngx.\n"
-                f"Document ID: {doc_id}\n"
-                f"Original Filename: {file_name}\n\n"
-                f"Please retrieve this document using `get_document` with ID {doc_id}, "
-                f"analyze its content, assign metadata and tags, write a structured note, "
-                f"and output a final report."
-            )
-
-            async with Agent(agent_config) as agent:
-                response = await agent.chat(prompt)
-                agent_report = ""
-                async for token in response:
-                    agent_report += token
-
-            agent_report = _clean_agent_response(agent_report)
-
-            await bot.edit_message_text(
-                "✅ Processing completed!",
-                chat_id=chat_id,
-                message_id=status_message_id,
-            )
-
-            for chunk in _chunk_text(agent_report):
-                await bot.send_message(chat_id, chunk)
+        for chunk in _chunk_text(agent_report):
+            await bot.send_message(chat_id, chunk)
 
     except DuplicateDocumentError as e:
         logger.info("Duplicate document detected for file %s: ID %d", file_name, e.doc_id)
@@ -686,59 +517,19 @@ async def handle_text_query(message: Message) -> None:
     try:
         user_token = Config.get_token_for_user(message.from_user.id)
 
-        mcp_server = _build_mcp_server(user_token)
+        history = _user_histories[message.from_user.id]
+        prompt = history.build_context(message.text)
 
-        system_instructions = (
-            "You are a helpful assistant for a personal document archive in Paperless-ngx. "
-            "Use the Paperless-ngx MCP tools to search and retrieve documents to answer "
-            "user queries. Always base your replies on the retrieved documents.\n"
-            "IMPORTANT LANGUAGE RULE:\n"
-            "- Always respond in the same language the user writes in. "
-            "If the user writes in English, reply in English. "
-            "If the user writes in Latvian, reply in Latvian. "
-            "Auto-detect and match the user's language precisely.\n"
-            "IMPORTANT FORMATTING RULES:\n"
-            "- The response will be sent as a Telegram message. "
-            "Do NOT use markdown links with URLs. "
-            "Do NOT include any file:// or http:// links in the response.\n"
-            "- After every document title or description, append its Paperless ID "
-            "in the format [#ID], for example: "
-            "'John Doe Passport (15.03.1993) [#42]'. "
-            "This tag is used by the bot to build download buttons automatically.\n"
-            "- Use plain text, numbered lists, and emoji. "
-            "Avoid Markdown syntax like **bold** or [text](url)."
+        agent_report = await run_agent(SEARCH_INSTRUCTIONS, prompt, user_token)
+
+        # Persist the turn so the next message can reference it
+        history.add(message.text, agent_report)
+
+        await bot.delete_message(
+            chat_id=status_message.chat.id, message_id=status_message.message_id
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            agent_config = LocalAgentConfig(
-                system_instructions=system_instructions,
-                mcp_servers=[mcp_server],
-                capabilities=CapabilitiesConfig(
-                    allow_file_write=False, allow_command_execution=False
-                ),
-                save_dir=temp_dir,
-                model=Config.GEMINI_MODEL,
-            )
-
-            history = _user_histories[message.from_user.id]
-            prompt = history.build_context(message.text)
-
-            async with Agent(agent_config) as agent:
-                response = await agent.chat(prompt)
-                agent_report = ""
-                async for token in response:
-                    agent_report += token
-
-            agent_report = _clean_agent_response(agent_report)
-
-            # Persist the turn so the next message can reference it
-            history.add(message.text, agent_report)
-
-            await bot.delete_message(
-                chat_id=status_message.chat.id, message_id=status_message.message_id
-            )
-
-            await _send_with_doc_buttons(message.chat.id, agent_report)
+        await _send_with_doc_buttons(message.chat.id, agent_report)
 
     except Exception as e:
         logger.exception("Error processing text query")
