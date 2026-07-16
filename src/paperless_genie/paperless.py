@@ -73,7 +73,9 @@ def _parse_task_id(response: httpx.Response) -> str:
     """
     try:
         data = response.json()
-    except Exception:
+    except ValueError:
+        # Body isn't JSON (json.JSONDecodeError is a ValueError) — some
+        # Paperless versions return the task ID as a quoted raw string.
         return response.text.strip().strip('"')
     if isinstance(data, dict):
         task_id = data.get("task_id")
