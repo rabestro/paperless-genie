@@ -22,8 +22,16 @@ repos:
         args: [ --fix ]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+  # mypy runs as a local hook through uv so pre-commit, `mise run mypy`, and CI
+  # all use the same mypy version, configuration, and installed dependencies.
+  # The mirrors-mypy hook ran in an isolated env without the project's real
+  # dependencies (its additional_dependencies listed stubs for packages this
+  # project doesn't even use) and could disagree with CI.
+  - repo: local
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests, types-pyyaml]
+        name: mypy
+        entry: uv run mypy src
+        language: system
+        pass_filenames: false
+        files: ^(src/.*|pyproject\.toml|uv\.lock)$
