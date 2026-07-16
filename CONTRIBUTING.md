@@ -28,7 +28,7 @@ local setup section for the exact version).
 
 ```bash
 mise install                 # Python 3.14 + uv
-uv sync --all-extras         # project + dev + docs dependencies
+uv sync --all-groups         # project + dev + docs dependency groups
 uv run pre-commit install    # git hooks (ruff, mypy, secret scanning, hygiene)
 ```
 
