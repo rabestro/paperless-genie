@@ -952,7 +952,7 @@ wheels = [
 
 [[package]]
 name = "paperless-genie"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "google-antigravity" },
