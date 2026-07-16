@@ -13,9 +13,6 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ "3.12", "3.13" ]
 
     steps:
       - name: Checkout repository
@@ -27,7 +24,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
           enable-cache: true
 
       - name: Install dependencies
