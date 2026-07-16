@@ -64,3 +64,15 @@ def test_build_mcp_env_omits_absent_plumbing_vars(monkeypatch: pytest.MonkeyPatc
     assert "LANG" not in env
     assert "LC_ALL" not in env
     assert "TMPDIR" not in env
+
+
+def test_build_mcp_server_invokes_pinned_binary_directly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PAPERLESS_URL", "http://paperless.example")
+
+    server = bot_module._build_mcp_server("this-users-token")
+
+    assert server.name == "paperless-ngx"
+    assert server.command == "paperless-mcp"
+    assert server.args == []
+    assert server.env is not None
+    assert server.env["PAPERLESS_API_TOKEN"] == "this-users-token"
