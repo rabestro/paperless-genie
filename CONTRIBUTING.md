@@ -71,9 +71,17 @@ acting on them, and so should you.
 
 ## Releases
 
-Releases are cut by the maintainer via the `Create Release` workflow (version bump,
-tag, GitHub Release, Docker image on GHCR). Contributors never need to touch
-versioning in a pull request.
+Releases are cut by the maintainer; contributors never touch versioning in a pull
+request. Because `main` requires a pull request, the version bump goes through one too:
+
+1. `mise run release <patch|minor|major>` — bumps the version in `pyproject.toml` and
+   `uv.lock` locally (via `uv version --bump`) and prints the remaining steps.
+2. Commit the bump on a `release/vX.Y.Z` branch, open a PR, let CI pass, and merge it.
+3. From an updated `main`, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+Pushing the tag (as a human, not a bot token, so the workflows actually trigger) builds
+and publishes the image (`publish.yaml`) and creates the GitHub Release with generated,
+label-categorized notes (`tag-release.yaml`).
 
 ## Security Issues
 

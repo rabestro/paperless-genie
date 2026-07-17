@@ -1,0 +1,32 @@
+name: Tag Release
+
+# Creates the GitHub Release when a version tag is pushed. The maintainer
+# pushes the tag locally (see the release steps in CONTRIBUTING.md) — because
+# a human pushes it, not GITHUB_TOKEN, this and publish.yaml both trigger
+# normally. Release notes are generated from merged PRs and the labels in
+# .github/release.yml.
+
+on:
+  push:
+    tags: [ "v*.*.*" ]
+
+permissions:
+  contents: write   # create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release create "${tag}" \
+            --title "Paperless Genie ${tag}" \
+            --generate-notes

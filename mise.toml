@@ -11,3 +11,17 @@ test = { run = "uv run pytest", description = "🧪 Runs tests with pytest" }
 run = { run = "uv run python -m paperless_genie", description = "🚀 Runs the bot locally" }
 docs = { run = "uv run --group docs mkdocs serve", description = "📖 Serves documentation locally" }
 docs-build = { run = "uv run --group docs mkdocs build", description = "🏗️ Builds documentation" }
+
+[tasks.release]
+description = "🔖 Bump version (patch|minor|major) to start a release"
+usage = 'arg "<bump>" help="Version bump type: patch, minor, or major"'
+run = '''
+uv version --bump "$usage_bump"
+new=$(uv version --short)
+echo ""
+echo "Bumped to ${new}. Release steps (main requires a PR):"
+echo "  1. git switch -c release/v${new} && git add pyproject.toml uv.lock && git commit -m \"chore: release v${new}\""
+echo "  2. git push -u origin release/v${new}, open a PR, let CI pass, merge it"
+echo "  3. git switch main && git pull && git tag v${new} && git push origin v${new}"
+echo "The pushed tag builds the image (publish.yaml) and creates the GitHub Release (tag-release.yaml)."
+'''
