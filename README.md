@@ -8,7 +8,7 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 `paperless-genie` acts as an intelligent, conversational interface to your Paperless-ngx document archive. It runs completely conversational and doesn't require mounting local files on the server. It supports multiple users, routing actions to Paperless-ngx dynamically using the corresponding user's API token.
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Demo: searching the archive and auto-archiving a document from a Telegram chat" width="360">
+  <img src="docs/assets/demo.gif" alt="Demo: searching the archive, asking for a yearly utilities total with a follow-up comparison, and auto-archiving a document from a Telegram chat" width="360">
   <br>
   <sub><i>Illustrative demo — a mock-up chat with sample data, not a recording of a live instance.</i></sub>
 </p>
@@ -18,6 +18,7 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 ## 🚀 Key Features
 
 * **Conversational Search & Query**: Ask questions about your archive in natural language (e.g., *"Find John Doe's passport"* or *"What contracts do we have from 1993?"*). The bot routes the query to an autonomous agent which uses Paperless-ngx MCP tools to find the answers.
+* **Totals, Comparisons & Follow-Ups**: Because an AI agent processes each query, it can reason over a set of documents — *"How much did we spend on utilities in 2025?"* — and per-user conversation memory lets you refine the answer with follow-ups like *"And compared to 2024?"*. See the [Example Queries](https://jc.id.lv/paperless-genie/examples/) page for the full range (and its honest note on accuracy).
 * **Intelligent Document Archiving**: Upload a document (PDF, JPG, PNG and more) directly in Telegram. The bot downloads it into memory and runs the Antigravity agent to analyze its contents. The agent suggests metadata (Title, Date, Correspondent, Type, Tags), uploads the document via the `post_document` MCP tool, waits for OCR, sets the metadata, and writes a detailed note in Paperless. All responses are automatically delivered in the language you write in.
 * **Multi-User Security & Permissions**: Mappings between Telegram User IDs and Paperless API Tokens ensure that each user can only search, see, and edit documents they have permissions to view in Paperless-ngx.
 * **Modern Developer Tooling**: Orchestrated using `uv`, `mise`, `ruff` for formatting/linting, `mypy` for static typing, and `pytest` for tests.
