@@ -13,28 +13,28 @@
       
       
       
-        <link rel="prev" href="../../architecture/">
+        <link rel="prev" href="..">
       
       
-        <link rel="next" href="../paperless/">
+        <link rel="next" href="../setup/telegram/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Creating Telegram Bot - Paperless Genie</title>
+        <title>Architecture - Paperless Genie</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +53,7 @@
       
     
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#telegram-bot-creation-guide" class="md-skip">
+        <a href="#architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -92,7 +92,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Paperless Genie" class="md-header__button md-logo" aria-label="Paperless Genie" data-md-component="logo">
+    <a href=".." title="Paperless Genie" class="md-header__button md-logo" aria-label="Paperless Genie" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Creating Telegram Bot
+              Architecture
             
           </span>
         </div>
@@ -223,7 +223,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -240,9 +240,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../architecture/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -259,13 +261,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../setup/telegram/" class="md-tabs__link">
           
   
   
@@ -283,7 +283,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../deployment/" class="md-tabs__link">
+      <a href="../deployment/" class="md-tabs__link">
         
   
   
@@ -318,7 +318,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Paperless Genie" class="md-nav__button md-logo" aria-label="Paperless Genie" data-md-component="logo">
+    <a href=".." title="Paperless Genie" class="md-nav__button md-logo" aria-label="Paperless Genie" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -348,7 +348,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -372,90 +372,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation & Setup
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Installation & Setup
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
     
   
   
@@ -475,7 +391,7 @@
   <span class="md-ellipsis">
     
   
-    Creating Telegram Bot
+    Architecture
   
 
     
@@ -493,7 +409,7 @@
   <span class="md-ellipsis">
     
   
-    Creating Telegram Bot
+    Architecture
   
 
     
@@ -519,10 +435,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#step-by-step-registration" class="md-nav__link">
+  <a href="#high-level-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🤖 Step-by-Step Registration
+        High-level flow
       
     </span>
   </a>
@@ -530,10 +446,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#get-your-telegram-user-id" class="md-nav__link">
+  <a href="#search-query" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔒 Get Your Telegram User ID
+        Search query
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-archiving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document archiving
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment shape
       
     </span>
   </a>
@@ -547,6 +485,87 @@
     </li>
   
 
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation & Setup
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation & Setup
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/telegram/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating Telegram Bot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -556,7 +575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../paperless/" class="md-nav__link">
+      <a href="../setup/paperless/" class="md-nav__link">
         
   
   
@@ -584,7 +603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../gemini/" class="md-nav__link">
+      <a href="../setup/gemini/" class="md-nav__link">
         
   
   
@@ -612,7 +631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
+      <a href="../setup/configuration/" class="md-nav__link">
         
   
   
@@ -647,7 +666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../deployment/" class="md-nav__link">
+      <a href="../deployment/" class="md-nav__link">
         
   
   
@@ -694,10 +713,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#step-by-step-registration" class="md-nav__link">
+  <a href="#high-level-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🤖 Step-by-Step Registration
+        High-level flow
       
     </span>
   </a>
@@ -705,10 +724,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#get-your-telegram-user-id" class="md-nav__link">
+  <a href="#search-query" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔒 Get Your Telegram User ID
+        Search query
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-archiving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document archiving
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment shape
       
     </span>
   </a>
@@ -735,26 +776,122 @@
   
 
 
-<h1 id="telegram-bot-creation-guide">Telegram Bot Creation Guide</h1>
-<p>To use <code>paperless-genie</code>, you need to register a new bot with Telegram and obtain a <strong>Telegram Bot Token</strong>.</p>
-<hr />
-<h2 id="step-by-step-registration">🤖 Step-by-Step Registration</h2>
-<ol>
-<li><strong>Find BotFather</strong>: Open Telegram and search for <code>@BotFather</code> (the official bot used to create and manage other bots).</li>
-<li><strong>Create New Bot</strong>: Send the <code>/newbot</code> command to BotFather.</li>
-<li><strong>Choose Name</strong>: BotFather will ask for a name. Enter a friendly name for your bot (e.g., <code>Paperless Genie</code>).</li>
-<li><strong>Choose Username</strong>: Choose a unique username that ends with <code>bot</code> (e.g., <code>my_paperless_archive_bot</code>).</li>
-<li><strong>Get Token</strong>: Once created, BotFather will message you a <strong>HTTP API Token</strong> (e.g., <code>123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ</code>). Copy this token; you will need it for the <code>TELEGRAM_BOT_TOKEN</code> environment variable.</li>
-</ol>
-<hr />
-<h2 id="get-your-telegram-user-id">🔒 Get Your Telegram User ID</h2>
-<p>Since <code>paperless-genie</code> only responds to authorized users, you need to find your Telegram User ID:</p>
-<ol>
-<li>Search for <code>@userinfobot</code> or <code>@GetIDsBot</code> in Telegram.</li>
-<li>Start a conversation with it.</li>
-<li>It will reply with your unique <strong>Id</strong> (a numeric value like <code>52966251</code>).</li>
-<li>Keep this ID handy; you will map it to your Paperless API Token in the configuration step.</li>
-</ol>
+<h1 id="architecture">Architecture</h1>
+<p>Paperless Genie is a small, single-process async application. A Telegram message
+comes in, and depending on its type it either runs a <strong>search</strong> query or an
+<strong>archiving</strong> workflow against your Paperless-ngx instance, driven by an AI agent
+that calls Paperless through the Model Context Protocol (MCP).</p>
+<h2 id="high-level-flow">High-level flow</h2>
+<pre class="mermaid"><code>flowchart LR
+    user([You]) --&gt;|message / document| tg[Telegram]
+    tg &lt;--&gt;|long polling| bot["bot.py&lt;br/&gt;handlers + create_bot()"]
+
+    bot --&gt;|per-user token| pc["paperless.py&lt;br/&gt;PaperlessClient"]
+    bot --&gt;|run_agent| ag["agent.py&lt;br/&gt;prompts + run loop"]
+    bot -.-&gt;|per-user history| conv["conversation.py"]
+
+    ag --&gt;|spawns| mcp["paperless-mcp&lt;br/&gt;(Node subprocess)"]
+    pc --&gt;|REST| paperless[("Paperless-ngx")]
+    mcp --&gt;|REST| paperless
+    ag --&gt;|LLM| gemini{{"Gemini&lt;br/&gt;(Antigravity SDK)"}}</code></pre>
+<p>Every module has one job:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config.py</code></td>
+<td>Load and validate environment configuration; map Telegram user IDs → Paperless tokens.</td>
+</tr>
+<tr>
+<td><code>bot.py</code></td>
+<td>Telegram handlers and the <code>create_bot()</code> factory; authorization; response formatting (chunking, download buttons).</td>
+</tr>
+<tr>
+<td><code>paperless.py</code></td>
+<td><code>PaperlessClient</code> — all Paperless-ngx REST calls and the upload/OCR polling state machine. No Telegram dependency.</td>
+</tr>
+<tr>
+<td><code>agent.py</code></td>
+<td>System prompts, MCP server wiring, and the shared <code>run_agent()</code> loop. No Telegram dependency.</td>
+</tr>
+<tr>
+<td><code>conversation.py</code></td>
+<td>Bounded per-user chat history for search context.</td>
+</tr>
+</tbody>
+</table>
+<p>The split matters for two reasons: <strong>security</strong> — the MCP subprocess receives only
+an allowlisted environment plus the requesting user's own token, never the bot
+token, the Gemini key, or other users' tokens; and <strong>testability</strong> — <code>paperless.py</code>
+and <code>agent.py</code> have no Telegram dependency, so the polling state machine and the
+prompt contracts are unit-tested directly.</p>
+<h2 id="search-query">Search query</h2>
+<p>A plain text message is treated as a natural-language query. The agent uses the
+Paperless MCP tools to find documents and answers in the user's own language;
+the bot turns any <code>[#ID]</code> markers in the reply into inline download buttons.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    participant U as You
+    participant B as bot.py
+    participant A as agent.py
+    participant M as paperless-mcp
+    participant P as Paperless-ngx
+
+    U-&gt;&gt;B: "What contracts do we have from 1993?"
+    B-&gt;&gt;B: authorize + build prompt with chat history
+    B-&gt;&gt;A: run_agent(SEARCH_INSTRUCTIONS, prompt, token)
+    A-&gt;&gt;M: spawn MCP server (user-scoped env)
+    A-&gt;&gt;M: search / fetch documents
+    M-&gt;&gt;P: REST queries
+    P--&gt;&gt;M: matching documents
+    M--&gt;&gt;A: results
+    A--&gt;&gt;B: answer with [#ID] markers
+    B-&gt;&gt;U: reply + 📥 download buttons</code></pre>
+<h2 id="document-archiving">Document archiving</h2>
+<p>Sending a PDF or photo triggers the archiving workflow. The upload and OCR wait
+happen in Python (<code>PaperlessClient</code>), with live status edits in the chat; only
+once the document exists does the agent enrich it.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    participant U as You
+    participant B as bot.py
+    participant C as PaperlessClient
+    participant P as Paperless-ngx
+    participant A as agent.py
+    participant M as paperless-mcp
+
+    U-&gt;&gt;B: upload document
+    B-&gt;&gt;C: upload_and_wait_for_ocr(on_status=…)
+    C-&gt;&gt;P: POST /api/documents/post_document/
+    P--&gt;&gt;C: task id
+    loop until SUCCESS / FAILED / timeout
+        C-&gt;&gt;P: GET /api/tasks/?task_id=…
+        C--&gt;&gt;B: on_status("⚙️ Waiting for OCR…")
+        B--&gt;&gt;U: status edit
+    end
+    alt duplicate
+        C--&gt;&gt;B: DuplicateDocumentError(existing id)
+        B-&gt;&gt;U: "already exists as #N" + button
+    else new document
+        C--&gt;&gt;B: new document id
+        B-&gt;&gt;A: run_agent(ARCHIVE_INSTRUCTIONS, …)
+        A-&gt;&gt;M: read content, set metadata, tags, note
+        M-&gt;&gt;P: REST
+        A--&gt;&gt;B: report (document's own language)
+        B-&gt;&gt;U: "✅ Processing completed" + report
+    end</code></pre>
+<h2 id="deployment-shape">Deployment shape</h2>
+<p>The bot ships as a single Docker image (published to GHCR) that bundles Python
+and Node.js — Node is needed because the Paperless MCP server is a Node package,
+pinned and pre-installed into the image so message handling never fetches code at
+runtime. It runs as an unprivileged user, holds no database of its own, and keeps
+state only in memory (conversation history) for the lifetime of the process. See
+the <a href="../deployment/">Deployment Guide</a> for running it via Docker Compose or systemd.</p>
 
 
 
@@ -804,10 +941,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

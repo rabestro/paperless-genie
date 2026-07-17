@@ -239,6 +239,25 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
@@ -353,6 +372,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
     
@@ -369,10 +415,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -390,8 +436,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -847,53 +893,53 @@
 <p>Running the bot inside Docker is the easiest method. The Docker image automatically installs Node.js, ensuring that Node-based MCP servers (like Paperless-ngx) work out of the box.</p>
 <h3 id="1-build-and-start-container">1. Build and Start Container</h3>
 <p>Ensure your <code>.env</code> file is configured in the root directory:</p>
-<pre><code class="language-bash">docker compose up -d --build
-</code></pre>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</code></pre></div>
 <h3 id="2-check-logs">2. Check Logs</h3>
-<pre><code class="language-bash">docker compose logs -f
-</code></pre>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f
+</code></pre></div>
 <hr />
 <h2 id="option-2-systemd-service-bare-metal">📋 Option 2: systemd Service (Bare Metal)</h2>
 <p>If you prefer to run the bot directly on your host machine, you can register it as a systemd service.</p>
 <h3 id="1-prepare-environment">1. Prepare Environment</h3>
 <p>Install project dependencies using <code>uv</code> and <code>mise</code>:</p>
-<pre><code class="language-bash"># Install tools
-mise install
+<div class="highlight"><pre><span></span><code><span class="c1"># Install tools</span>
+mise<span class="w"> </span>install
 
-# Sync runtime dependencies (dev tooling is not needed on a server)
-uv sync --no-dev
-</code></pre>
+<span class="c1"># Sync runtime dependencies (dev tooling is not needed on a server)</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--no-dev
+</code></pre></div>
 <h3 id="2-create-service-file">2. Create Service File</h3>
 <p>Create the systemd configuration file at <code>/etc/systemd/system/paperless-genie.service</code> (replace <code>your-username</code> and directories as needed):</p>
-<pre><code class="language-ini">[Unit]
-Description=Paperless Genie Telegram Bot
-After=network.target
+<div class="highlight"><pre><span></span><code><span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">Paperless Genie Telegram Bot</span>
+<span class="na">After</span><span class="o">=</span><span class="s">network.target</span>
 
-[Service]
-Type=simple
-User=your-username
-WorkingDirectory=/home/your-username/Repositories/paperless-genie
-ExecStart=/home/your-username/Repositories/paperless-genie/.venv/bin/python -m paperless_genie
-Restart=always
-RestartSec=10
-EnvironmentFile=/home/your-username/Repositories/paperless-genie/.env
+<span class="k">[Service]</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">simple</span>
+<span class="na">User</span><span class="o">=</span><span class="s">your-username</span>
+<span class="na">WorkingDirectory</span><span class="o">=</span><span class="s">/home/your-username/Repositories/paperless-genie</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">/home/your-username/Repositories/paperless-genie/.venv/bin/python -m paperless_genie</span>
+<span class="na">Restart</span><span class="o">=</span><span class="s">always</span>
+<span class="na">RestartSec</span><span class="o">=</span><span class="s">10</span>
+<span class="na">EnvironmentFile</span><span class="o">=</span><span class="s">/home/your-username/Repositories/paperless-genie/.env</span>
 
-[Install]
-WantedBy=multi-user.target
-</code></pre>
+<span class="k">[Install]</span>
+<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</code></pre></div>
 <h3 id="3-start-the-service">3. Start the Service</h3>
-<pre><code class="language-bash"># Reload systemd manager configuration
-sudo systemctl daemon-reload
+<div class="highlight"><pre><span></span><code><span class="c1"># Reload systemd manager configuration</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
 
-# Start service immediately
-sudo systemctl start paperless-genie
+<span class="c1"># Start service immediately</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span>start<span class="w"> </span>paperless-genie
 
-# Enable service to run on boot
-sudo systemctl enable paperless-genie
-</code></pre>
+<span class="c1"># Enable service to run on boot</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>paperless-genie
+</code></pre></div>
 <h3 id="4-monitor-logs">4. Monitor Logs</h3>
-<pre><code class="language-bash">journalctl -u paperless-genie -f
-</code></pre>
+<div class="highlight"><pre><span></span><code>journalctl<span class="w"> </span>-u<span class="w"> </span>paperless-genie<span class="w"> </span>-f
+</code></pre></div>
 
 
 

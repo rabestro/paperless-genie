@@ -240,6 +240,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -353,6 +372,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -374,10 +420,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -395,8 +441,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -794,12 +840,12 @@
 <hr />
 <h2 id="setting-up-paperless_user_tokens-mapping">👥 Setting up <code>PAPERLESS_USER_TOKENS</code> Mapping</h2>
 <p>The <code>PAPERLESS_USER_TOKENS</code> variable maps a user's Telegram User ID to their Paperless API token. It must be formatted as a valid single-line JSON string:</p>
-<pre><code class="language-json">{&quot;52966251&quot;: &quot;your_paperless_token&quot;, &quot;12345678&quot;: &quot;brother_paperless_token&quot;}
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;52966251&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;your_paperless_token&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;12345678&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;brother_paperless_token&quot;</span><span class="p">}</span>
+</code></pre></div>
 <h3 id="formatting-for-env">Formatting for <code>.env</code></h3>
 <p>Ensure the JSON string is wrapped in single quotes to prevent terminal shell parsing issues:</p>
-<pre><code class="language-ini">PAPERLESS_USER_TOKENS='{&quot;52966251&quot;: &quot;your_paperless_token&quot;, &quot;12345678&quot;: &quot;brother_paperless_token&quot;}'
-</code></pre>
+<div class="highlight"><pre><span></span><code><span class="na">PAPERLESS_USER_TOKENS</span><span class="o">=</span><span class="s">&#39;{&quot;</span><span class="na">52966251&quot;</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;your_paperless_token&quot;</span><span class="na">, &quot;12345678&quot;</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;brother_paperless_token&quot;</span><span class="na">}&#39;</span>
+</code></pre></div>
 <h3 id="verification">Verification</h3>
 <p>When the bot starts up, it automatically validates:
 1. That the JSON string is correctly formatted.
