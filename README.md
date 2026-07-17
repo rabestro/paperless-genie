@@ -7,6 +7,12 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 
 `paperless-genie` acts as an intelligent, conversational interface to your Paperless-ngx document archive. It runs completely conversational and doesn't require mounting local files on the server. It supports multiple users, routing actions to Paperless-ngx dynamically using the corresponding user's API token.
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Demo: searching the archive and auto-archiving a document from a Telegram chat" width="360">
+  <br>
+  <sub><i>Illustrative demo — a mock-up chat with sample data, not a recording of a live instance.</i></sub>
+</p>
+
 ---
 
 ## 🚀 Key Features

@@ -4,3 +4,4 @@
 *.yaml text
 *.yml text
 *.toml text
+*.gif binary
