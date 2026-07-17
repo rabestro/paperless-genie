@@ -10,6 +10,9 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        # --unsafe: syntax-only check, so mkdocs.yaml's `!!python/name:` tag
+        # (needed for Material's mermaid fence) doesn't trip the safe loader.
+        args: [--unsafe]
       - id: check-toml
       - id: check-added-large-files
       - id: check-merge-conflict
