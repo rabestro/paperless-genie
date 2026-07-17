@@ -1,4 +1,4 @@
-"""Telegram bot handlers and the Paperless-ngx archiving agent."""
+"""Telegram bot handlers and the create_bot() factory."""
 
 import logging
 import os
@@ -26,6 +26,9 @@ _TELEGRAM_MESSAGE_LIMIT = 4000
 
 # Regex to find document ID tags that the agent embeds, e.g. [#42]
 _DOC_TAG_RE = re.compile(r"\[#(\d+)\]")
+
+# Per-user conversation history (lives as long as the bot process is running).
+_user_histories: dict[int, ConversationHistory] = defaultdict(ConversationHistory)
 
 
 def _extract_doc_ids(text: str) -> list[int]:
@@ -87,10 +90,19 @@ def _build_doc_keyboard(
     return keyboard
 
 
-async def _send_with_doc_buttons(
-    chat_id: int,
-    text: str,
-) -> None:
+def is_allowed(message: Message) -> bool:
+    """Checks if the sender of the message is authorized to use the bot.
+
+    Args:
+        message: The received Telegram message.
+
+    Returns:
+        True if the user is authorized, False otherwise.
+    """
+    return message.from_user is not None and message.from_user.id in Config.USER_TOKENS
+
+
+async def _send_with_doc_buttons(bot: AsyncTeleBot, chat_id: int, text: str) -> None:
     """Sends a text message and attaches download buttons for any [#ID] tags.
 
     The [#ID] markers are stripped from the visible text before sending.
@@ -98,6 +110,7 @@ async def _send_with_doc_buttons(
     attached only to the last chunk.
 
     Args:
+        bot: The bot instance to send through.
         chat_id: The Telegram chat to send to.
         text: Agent response text, possibly containing [#ID] markers.
     """
@@ -113,32 +126,12 @@ async def _send_with_doc_buttons(
     await bot.send_message(chat_id, chunks[-1], reply_markup=keyboard)
 
 
-# Per-user conversation history (lives as long as the bot process is running)
-_user_histories: dict[int, ConversationHistory] = defaultdict(ConversationHistory)
-
-
-# Initialize the Telegram Bot
-bot = AsyncTeleBot(Config.TELEGRAM_BOT_TOKEN)
-
-
-def is_allowed(message: Message) -> bool:
-    """Checks if the sender of the message is authorized to use the bot.
-
-    Args:
-        message: The received Telegram message.
-
-    Returns:
-        True if the user is authorized, False otherwise.
-    """
-    return message.from_user is not None and message.from_user.id in Config.USER_TOKENS
-
-
-@bot.message_handler(commands=["start", "help"])
-async def send_welcome(message: Message) -> None:
+async def send_welcome(message: Message, bot: AsyncTeleBot) -> None:
     """Sends a welcome message explaining the bot capabilities.
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message):
         return
@@ -155,12 +148,12 @@ async def send_welcome(message: Message) -> None:
     )
 
 
-@bot.message_handler(commands=["clear"])
-async def handle_clear(message: Message) -> None:
+async def handle_clear(message: Message, bot: AsyncTeleBot) -> None:
     """Clears the conversation history for the current user.
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message) or not message.from_user:
         return
@@ -168,14 +161,14 @@ async def handle_clear(message: Message) -> None:
     await bot.reply_to(message, "🗑 Conversation history cleared. Starting fresh!")
 
 
-@bot.message_handler(commands=["get"])
-async def handle_get(message: Message) -> None:
+async def handle_get(message: Message, bot: AsyncTeleBot) -> None:
     """Downloads a document by its Paperless ID and sends it as a PDF file.
 
     Usage: /get <document_id>
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message) or not message.from_user:
         return
@@ -249,7 +242,8 @@ async def handle_get(message: Message) -> None:
         )
 
 
-async def _archive_file(
+async def _archive_file(  # noqa: PLR0913 — cohesive internal helper; bot is the injected dependency
+    bot: AsyncTeleBot,
     *,
     file_bytes: bytes,
     file_name: str,
@@ -263,6 +257,7 @@ async def _archive_file(
     archiving workflow is defined in a single place.
 
     Args:
+        bot: The bot instance to send status and report messages through.
         file_bytes: Raw bytes of the file to archive.
         file_name: Original filename.
         user_token: Paperless-ngx API token for the requesting user.
@@ -344,12 +339,12 @@ async def _archive_file(
         )
 
 
-@bot.message_handler(content_types=["document"])
-async def handle_document(message: Message) -> None:
+async def handle_document(message: Message, bot: AsyncTeleBot) -> None:
     """Processes document uploads (PDF, JPG, PNG, etc.) and archives them.
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message):
         return
@@ -375,6 +370,7 @@ async def handle_document(message: Message) -> None:
         file_info = await bot.get_file(message.document.file_id)
         file_bytes = await bot.download_file(file_info.file_path)
         await _archive_file(
+            bot,
             file_bytes=file_bytes,
             file_name=file_name,
             user_token=user_token,
@@ -390,8 +386,7 @@ async def handle_document(message: Message) -> None:
         )
 
 
-@bot.message_handler(content_types=["photo"])
-async def handle_photo(message: Message) -> None:
+async def handle_photo(message: Message, bot: AsyncTeleBot) -> None:
     """Processes photos sent directly to the chat (Telegram compresses them as JPEG).
 
     Telegram compresses direct photo messages to JPEG. The highest-resolution
@@ -399,6 +394,7 @@ async def handle_photo(message: Message) -> None:
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message):
         return
@@ -421,6 +417,7 @@ async def handle_photo(message: Message) -> None:
         )
         file_name = f"{caption_slug}.jpg"
         await _archive_file(
+            bot,
             file_bytes=file_bytes,
             file_name=file_name,
             user_token=user_token,
@@ -436,14 +433,14 @@ async def handle_photo(message: Message) -> None:
         )
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("get_doc:"))
-async def handle_doc_button(call: CallbackQuery) -> None:
+async def handle_doc_button(call: CallbackQuery, bot: AsyncTeleBot) -> None:
     """Handles inline button presses that request a document download.
 
     The callback_data format is ``get_doc:<document_id>``.
 
     Args:
         call: The incoming callback query from Telegram.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not call.from_user or call.from_user.id not in Config.USER_TOKENS:
         await bot.answer_callback_query(call.id, "⛔ Not authorized.")
@@ -499,12 +496,12 @@ async def handle_doc_button(call: CallbackQuery) -> None:
         )
 
 
-@bot.message_handler(content_types=["text"])
-async def handle_text_query(message: Message) -> None:
+async def handle_text_query(message: Message, bot: AsyncTeleBot) -> None:
     """Processes search and informational text queries using the AI agent.
 
     Args:
         message: The received Telegram message.
+        bot: The bot instance (injected by telebot via pass_bot).
     """
     if not is_allowed(message):
         return
@@ -529,7 +526,7 @@ async def handle_text_query(message: Message) -> None:
             chat_id=status_message.chat.id, message_id=status_message.message_id
         )
 
-        await _send_with_doc_buttons(message.chat.id, agent_report)
+        await _send_with_doc_buttons(bot, message.chat.id, agent_report)
 
     except Exception as e:
         logger.exception("Error processing text query")
@@ -538,3 +535,61 @@ async def handle_text_query(message: Message) -> None:
             chat_id=status_message.chat.id,
             message_id=status_message.message_id,
         )
+
+
+def create_bot(config: type[Config]) -> AsyncTeleBot:
+    """Builds an AsyncTeleBot with all handlers registered.
+
+    Constructing the bot here (rather than at module import) keeps importing
+    this module side-effect free: no token is needed until the bot is actually
+    created. Handlers are registered with pass_bot=True so telebot injects the
+    bot instance instead of them closing over a module-level singleton.
+
+    Args:
+        config: The validated configuration providing the bot token.
+
+    Returns:
+        A configured AsyncTeleBot ready to start polling.
+    """
+    bot = AsyncTeleBot(config.TELEGRAM_BOT_TOKEN)
+
+    # telebot's register_*_handler is typed as Callable[[Any], Awaitable] and
+    # does not model pass_bot=True, under which the handler legitimately takes
+    # a second `bot` argument — hence the arg-type ignores on each handler.
+    bot.register_message_handler(
+        send_welcome,  # type: ignore[arg-type]
+        commands=["start", "help"],
+        pass_bot=True,
+    )
+    bot.register_message_handler(
+        handle_clear,  # type: ignore[arg-type]
+        commands=["clear"],
+        pass_bot=True,
+    )
+    bot.register_message_handler(
+        handle_get,  # type: ignore[arg-type]
+        commands=["get"],
+        pass_bot=True,
+    )
+    bot.register_message_handler(
+        handle_document,  # type: ignore[arg-type]
+        content_types=["document"],
+        pass_bot=True,
+    )
+    bot.register_message_handler(
+        handle_photo,  # type: ignore[arg-type]
+        content_types=["photo"],
+        pass_bot=True,
+    )
+    bot.register_message_handler(
+        handle_text_query,  # type: ignore[arg-type]
+        content_types=["text"],
+        pass_bot=True,
+    )
+    bot.register_callback_query_handler(
+        handle_doc_button,  # type: ignore[arg-type]
+        func=lambda call: bool(call.data) and call.data.startswith("get_doc:"),
+        pass_bot=True,
+    )
+
+    return bot

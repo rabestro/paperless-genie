@@ -3,12 +3,8 @@
 import asyncio
 import logging
 
+from paperless_genie.bot import create_bot
 from paperless_genie.config import Config
-
-# Validate config before initializing the bot to avoid import-time crashes
-Config.validate()
-
-from paperless_genie.bot import bot  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -19,7 +15,9 @@ logger = logging.getLogger("paperless_genie")
 
 
 async def main() -> None:
-    """Starts the Telegram Bot polling loop."""
+    """Validates config, builds the bot, and starts the polling loop."""
+    Config.validate()
+    bot = create_bot(Config)
     logger.info("Starting Telegram Bot (paperless-genie)...")
     await bot.polling(non_stop=True)
 
