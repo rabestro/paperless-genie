@@ -10,6 +10,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Both jobs only read the checked-out code; nothing here needs write scope.
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -69,6 +73,10 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          # Fall back to the newest prior cache so a config change rebuilds only
+          # the changed hooks instead of every environment from scratch.
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
 
       - name: Run pre-commit on all files
         run: uv run pre-commit run --all-files --show-diff-on-failure
