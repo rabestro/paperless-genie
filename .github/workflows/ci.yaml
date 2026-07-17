@@ -21,8 +21,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@v7
@@ -34,8 +32,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-
-
       - name: Check formatting with Ruff
         run: uv run ruff format src tests --check
 
@@ -46,7 +42,7 @@ jobs:
         run: uv run mypy src
 
       - name: Run tests with pytest
-        run: uv run pytest
+        run: uv run pytest --cov=paperless_genie --cov-report=term-missing
 
   # Enforce the full pre-commit suite centrally: local hooks can be skipped
   # (or never installed), and this is the only place the betterleaks secret
