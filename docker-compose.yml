@@ -8,3 +8,6 @@ services:
       - PAPERLESS_URL=${PAPERLESS_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PAPERLESS_USER_TOKENS=${PAPERLESS_USER_TOKENS}
+      # Optional; empty when unset in .env, and config.py falls back to its
+      # default — so the default lives only in config.py, not duplicated here.
+      - GEMINI_MODEL=${GEMINI_MODEL:-}

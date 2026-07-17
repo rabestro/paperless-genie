@@ -28,7 +28,13 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 
 ### 1. Environment Variables
 
-Create a `.env` file in the root folder of the project:
+Copy the example file and fill in your own values:
+
+```bash
+cp .env.example .env
+```
+
+`.env.example` documents every variable:
 
 ```ini
 TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
@@ -37,6 +43,9 @@ GEMINI_API_KEY="your_google_ai_studio_gemini_api_key"
 
 # JSON mapping between Telegram User IDs and their Paperless API Tokens
 PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_user_2"}'
+
+# Optional — leave commented to use the default (gemini-3.1-flash-lite)
+#GEMINI_MODEL="gemini-3.1-flash-lite"
 ```
 
 ### 2. Local Environment Setup
