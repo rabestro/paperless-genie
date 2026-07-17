@@ -1,6 +1,6 @@
 # Agent Guidelines for paperless-genie
 
-This document defines the rules, stack, standards, and workflow conventions for AI agents collaborating on the `paperless-genie` project.
+This document defines the rules, stack, standards, and workflow conventions for AI agents collaborating on the `paperless-genie` project. It is canonical; `CLAUDE.md` and `GEMINI.md` are thin shims that point here.
 
 ## Stack & Architecture
 
@@ -18,18 +18,24 @@ This document defines the rules, stack, standards, and workflow conventions for 
 
 ## Quality & Checks
 
-Before submitting any code changes, ensure they pass the local check suite:
-- Format code: `uv run ruff format src tests`
-- Lint code: `uv run ruff check src tests`
-- Type check: `uv run mypy src`
-- Run unit tests: `uv run pytest`
+The `mise run` tasks are the canonical local commands (defined in `mise.toml`);
+the raw `uv run` form each wraps is shown alongside. Before submitting any code
+changes, ensure they pass the local check suite:
+- Format code: `mise run format` (`uv run ruff format src tests && uv run ruff check src tests --fix`)
+- Lint code: `mise run lint` (`uv run ruff check src tests`)
+- Type check: `mise run mypy` (`uv run mypy src`)
+- Run unit tests: `mise run test` (`uv run pytest`)
 - Check all files with pre-commit: `uv run pre-commit run --all-files`
+
+Run a single test by node id or keyword, e.g.
+`uv run pytest tests/test_paperless.py -k duplicate`.
 
 ## Git & PR Workflow
 
 - **Branch Naming**: Use conventions: `<type>/<short-desc>` (e.g. `feat/ocr-polling`, `fix/token-exhaustion`, `ci/add-checks`).
   - Allowed types: `feat`, `fix`, `refactor`, `chore`, `docs`, `ci`, `test`, `perf`.
 - **Commits**: Follow Conventional Commits style (e.g. `feat: ...`, `fix: ...`, `chore: ...`).
+- **Language**: All repository text — commits, PR descriptions, issues, code comments, and docstrings — is English only.
 - **Staging**: Explicitly stage files by name. Avoid `git add .` or `git add -A`.
 - **Deployment**: Production runs on remote server `aurora` in `~/paperless-genie` using the Docker image published to GHCR.
 
