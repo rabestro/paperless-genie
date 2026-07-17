@@ -5,10 +5,15 @@ on:
     branches: [ "main" ]
     tags: [ "v*.*.*" ]
 
-# Require packages write permission to push to GitHub Container Registry (GHCR)
+# packages: write  → push the image to GHCR
+# contents: read   → checkout
+# actions:  write  → export the type=gha build cache (Cache service API v2,
+#                    required since 2025-04-15, authenticates with GITHUB_TOKEN;
+#                    without this the cache export fails with 403)
 permissions:
   packages: write
   contents: read
+  actions: write
 
 env:
   REGISTRY: ghcr.io
