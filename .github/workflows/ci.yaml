@@ -43,3 +43,32 @@ jobs:
 
       - name: Run tests with pytest
         run: uv run pytest
+
+  # Enforce the full pre-commit suite centrally: local hooks can be skipped
+  # (or never installed), and this is the only place the betterleaks secret
+  # scan runs on every PR regardless of the contributor's setup.
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: "3.14"
+          enable-cache: true
+
+      # The local mypy hook runs `uv run mypy src` and needs the project env.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit on all files
+        run: uv run pre-commit run --all-files --show-diff-on-failure
