@@ -18,7 +18,7 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 ## 🚀 Key Features
 
 * **Conversational Search & Query**: Ask questions about your archive in natural language (e.g., *"Find John Doe's passport"* or *"What contracts do we have from 1993?"*). The bot routes the query to an autonomous agent which uses Paperless-ngx MCP tools to find the answers.
-* **Intelligent Document Archiving**: Upload a document (PDF, JPG, PNG and more) directly in Telegram. The bot downloads it to a temporary directory and runs the Antigravity agent to analyze its contents. The agent suggests metadata (Title, Date, Correspondent, Type, Tags), uploads the document via the `post_document` MCP tool, waits for OCR, sets the metadata, and writes a detailed note in Paperless. All responses are automatically delivered in the language you write in.
+* **Intelligent Document Archiving**: Upload a document (PDF, JPG, PNG and more) directly in Telegram. The bot downloads it into memory and runs the Antigravity agent to analyze its contents. The agent suggests metadata (Title, Date, Correspondent, Type, Tags), uploads the document via the `post_document` MCP tool, waits for OCR, sets the metadata, and writes a detailed note in Paperless. All responses are automatically delivered in the language you write in.
 * **Multi-User Security & Permissions**: Mappings between Telegram User IDs and Paperless API Tokens ensure that each user can only search, see, and edit documents they have permissions to view in Paperless-ngx.
 * **Modern Developer Tooling**: Orchestrated using `uv`, `mise`, `ruff` for formatting/linting, `mypy` for static typing, and `pytest` for tests.
 
@@ -133,6 +133,39 @@ sudo systemctl daemon-reload
 sudo systemctl start paperless-genie
 sudo systemctl enable paperless-genie
 ```
+
+---
+
+## 🔒 Privacy & Data Flow
+
+This bot handles authentication tokens and the contents of a personal document
+archive, so it's worth being explicit about where data goes.
+
+* **Documents are sent to Google's Gemini API for analysis.** When you archive
+  or search, the relevant document text and your query are sent to Gemini
+  (via the Google Antigravity SDK) so the agent can extract metadata, write
+  notes, and answer questions. This is **not** a fully local/offline setup —
+  Google's API data-handling terms apply, and they differ by API tier. Keep
+  this in mind for highly sensitive documents. The model is configurable via
+  `GEMINI_MODEL`.
+* **Secrets live only in `.env`** (gitignored) and are never logged. The bot
+  token, the Gemini key, and every user's Paperless token stay in the
+  process environment.
+* **Per-user isolation.** Each Telegram user is mapped to their own
+  Paperless-ngx API token, so a user can only search and edit documents that
+  token is allowed to access.
+* **Least-privilege subprocess.** The Paperless MCP server runs as a
+  subprocess that receives only the Paperless URL and the *requesting user's*
+  token — never the Telegram bot token, the Gemini key, or other users'
+  tokens.
+* **No storage of its own.** The bot keeps no database. Conversation history
+  lives only in memory for the lifetime of the process (and `/clear` resets
+  it). Uploaded files are handled in memory and passed straight to
+  Paperless-ngx; the agent's scratch space is a temporary directory that is
+  deleted when processing finishes. In Docker it runs as an unprivileged user.
+
+Vulnerabilities: please use private reporting, never public issues — see
+[SECURITY.md](SECURITY.md).
 
 ---
 
