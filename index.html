@@ -14,7 +14,7 @@
       
       
       
-        <link rel="next" href="architecture/">
+        <link rel="next" href="examples/">
       
       
         
@@ -242,6 +242,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Example Queries
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="architecture/" class="md-tabs__link">
         
   
@@ -442,6 +461,33 @@
   
   
     <li class="md-nav__item">
+      <a href="examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Example Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="architecture/" class="md-nav__link">
         
   
@@ -484,10 +530,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -505,8 +551,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -734,7 +780,7 @@
 <p>Welcome to the <strong>Paperless Genie</strong> documentation!</p>
 <p><code>paperless-genie</code> is an intelligent, conversational AI Telegram bot for <strong>Paperless-ngx</strong> built using the <strong>Google Antigravity SDK</strong> (<code>google-antigravity</code>). It allows you to search and manage your document archive using natural language, directly from Telegram.</p>
 <p align="center">
-  <img src="assets/demo.gif" alt="Demo: searching the archive and auto-archiving a document from a Telegram chat" width="360">
+  <img src="assets/demo.gif" alt="Demo: searching the archive, asking for a yearly utilities total with a follow-up comparison, and auto-archiving a document from a Telegram chat" width="360">
   <br>
   <sub><i>Illustrative demo — a mock-up chat with sample data, not a recording of a live instance.</i></sub>
 </p>
@@ -743,6 +789,7 @@
 <h2 id="key-features">Key Features</h2>
 <ul>
 <li><strong>Natural Language Queries</strong>: Search your documents by asking questions like <em>"Where is my passport?"</em> or <em>"List all lease agreements from 1992"</em>.</li>
+<li><strong>Totals &amp; Follow-Up Questions</strong>: Ask analytical questions like <em>"How much did we spend on utilities in 2025?"</em> and refine them conversationally — <em>"And compared to 2024?"</em> — thanks to per-user conversation memory. See <a href="examples/">Example Queries</a> for more.</li>
 <li><strong>Smart PDF Archiving</strong>: Send a PDF document via Telegram. The bot analyzes the document, extracts metadata, uploads it to Paperless-ngx, sets the tags/correspondent/date, and appends a detailed note.</li>
 <li><strong>Granular Multi-User Permissions</strong>: Map Telegram User IDs to Paperless API Tokens so users only see and edit documents they have access to in your Paperless-ngx instance.</li>
 <li><strong>No Server Mount Required</strong>: The bot interacts entirely via Paperless API and temporary folder paths, keeping your server clean.</li>
