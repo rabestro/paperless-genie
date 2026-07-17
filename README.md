@@ -44,8 +44,8 @@ GEMINI_API_KEY="your_google_ai_studio_gemini_api_key"
 # JSON mapping between Telegram User IDs and their Paperless API Tokens
 PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_user_2"}'
 
-# Optional — defaults to gemini-3.1-flash-lite
-GEMINI_MODEL="gemini-3.1-flash-lite"
+# Optional — leave commented to use the default (gemini-3.1-flash-lite)
+#GEMINI_MODEL="gemini-3.1-flash-lite"
 ```
 
 ### 2. Local Environment Setup

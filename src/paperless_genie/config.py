@@ -15,7 +15,10 @@ class Config:
     TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     PAPERLESS_URL: str = os.environ.get("PAPERLESS_URL", "")
     GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    # `or` (not a get default) so an empty GEMINI_MODEL — e.g. an unset
+    # ${GEMINI_MODEL} forwarded by docker-compose — falls back to the default
+    # here. This keeps this line the single source of truth for the default.
+    GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL") or "gemini-3.1-flash-lite"
 
     # Mapping of Telegram user IDs to Paperless API tokens
     USER_TOKENS: ClassVar[dict[int, str]] = {}
