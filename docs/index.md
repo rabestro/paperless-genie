@@ -4,6 +4,12 @@ Welcome to the **Paperless Genie** documentation!
 
 `paperless-genie` is an intelligent, conversational AI Telegram bot for **Paperless-ngx** built using the **Google Antigravity SDK** (`google-antigravity`). It allows you to search and manage your document archive using natural language, directly from Telegram.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Demo: searching the archive and auto-archiving a document from a Telegram chat" width="360">
+  <br>
+  <sub><i>Illustrative demo — a mock-up chat with sample data, not a recording of a live instance.</i></sub>
+</p>
+
 ---
 
 ## Key Features
