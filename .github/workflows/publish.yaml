@@ -21,6 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Buildx is required for the GitHub Actions cache backend below.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
         uses: docker/login-action@v4
         with:
@@ -46,3 +50,13 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Reuse layers across runs so an unchanged main is mostly cache hits.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Attach SLSA provenance and an SBOM to the image in GHCR.
+          provenance: mode=max
+          sbom: true
+          # Single-platform (linux/amd64): the only deploy target (aurora) is
+          # x86_64, so arm64 via QEMU emulation would double build time for no
+          # consumer. Add `platforms: linux/amd64,linux/arm64` + a QEMU setup
+          # step if an arm host ever enters the picture.
