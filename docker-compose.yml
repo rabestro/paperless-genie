@@ -8,3 +8,5 @@ services:
       - PAPERLESS_URL=${PAPERLESS_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PAPERLESS_USER_TOKENS=${PAPERLESS_USER_TOKENS}
+      # Optional; falls back to the app default when unset in .env.
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.1-flash-lite}
