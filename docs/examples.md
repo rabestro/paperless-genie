@@ -52,8 +52,8 @@ Use `/clear` to start a fresh topic when you switch context.
 
 Send a **PDF or photo** straight into the chat. The bot uploads it to
 Paperless-ngx, waits for OCR, and the agent then sets the title, date,
-correspondent, type and tags, and writes a structured note — reporting back in
-the document's own language. Duplicates are detected and linked instead of
+correspondent, document type, and tags, and writes a structured note —
+reporting back in the document's own language. Duplicates are detected and linked instead of
 re-uploaded. For photos, the caption (if any) becomes the filename.
 
 ## Commands
