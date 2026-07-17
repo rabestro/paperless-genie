@@ -35,6 +35,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Example Queries: examples.md
   - Architecture: architecture.md
   - Installation & Setup:
       - Creating Telegram Bot: setup/telegram.md
