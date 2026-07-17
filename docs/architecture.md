@@ -79,6 +79,7 @@ sequenceDiagram
     participant C as PaperlessClient
     participant P as Paperless-ngx
     participant A as agent.py
+    participant M as paperless-mcp
 
     U->>B: upload document
     B->>C: upload_and_wait_for_ocr(on_status=…)
@@ -86,7 +87,8 @@ sequenceDiagram
     P-->>C: task id
     loop until SUCCESS / FAILED / timeout
         C->>P: GET /api/tasks/?task_id=…
-        C-->>U: "⚙️ Waiting for OCR…" (status edit)
+        C-->>B: on_status("⚙️ Waiting for OCR…")
+        B-->>U: status edit
     end
     alt duplicate
         C-->>B: DuplicateDocumentError(existing id)
@@ -94,7 +96,8 @@ sequenceDiagram
     else new document
         C-->>B: new document id
         B->>A: run_agent(ARCHIVE_INSTRUCTIONS, …)
-        A->>P: read content, set metadata, tags, note
+        A->>M: read content, set metadata, tags, note
+        M->>P: REST
         A-->>B: report (document's own language)
         B->>U: "✅ Processing completed" + report
     end
