@@ -25,8 +25,17 @@ theme:
     - navigation.expand
     - content.code.copy
 
+markdown_extensions:
+  # Renders ```mermaid fenced blocks as diagrams (Material's built-in support).
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
 nav:
   - Home: index.md
+  - Architecture: architecture.md
   - Installation & Setup:
       - Creating Telegram Bot: setup/telegram.md
       - Paperless-ngx Token: setup/paperless.md
