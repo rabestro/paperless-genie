@@ -1,49 +1,32 @@
 name: Tag Release
 
-# Phase 2 of the release flow. When a version-bump PR from release.yaml lands
-# on main, this tags the new version and creates the GitHub Release. Tag pushes
-# are not blocked by the branch ruleset, so GITHUB_TOKEN can create the tag
-# directly. Idempotent: it only acts when pyproject.toml's version has no
-# matching tag yet, so ordinary pushes to main do nothing. Creating the tag
-# triggers publish.yaml (which builds and pushes the image).
+# Creates the GitHub Release when a version tag is pushed. The maintainer
+# pushes the tag locally (see the release steps in CONTRIBUTING.md) — because
+# a human pushes it, not GITHUB_TOKEN, this and publish.yaml both trigger
+# normally. Release notes are generated from merged PRs and the labels in
+# .github/release.yml.
 
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - 'pyproject.toml'
+    tags: [ "v*.*.*" ]
 
 permissions:
-  contents: write   # create the tag and the GitHub Release
+  contents: write   # create the GitHub Release
 
 jobs:
-  tag-release:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0  # need all tags to check whether this version is new
+          fetch-depth: 0
 
-      - name: Tag and release if the version is new
-        id: tag
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          tag="v${version}"
-
-          if git rev-parse "${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists — nothing to do."
-            exit 0
-          fi
-
-          echo "Tagging new version ${tag}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "${tag}"
-          git push origin "${tag}"
-
+          tag="${GITHUB_REF_NAME}"
           gh release create "${tag}" \
             --title "Paperless Genie ${tag}" \
             --generate-notes
