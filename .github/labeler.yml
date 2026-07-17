@@ -1,30 +1,33 @@
-# Automated PR labeling rules based on modified files and branch names
+# Automated PR labeling rules based on modified files and branch names.
+# Domain labels map to their modules (post-#50–#53 decomposition of bot.py),
+# so each label carries signal instead of firing on every code PR.
 
-# 💬 Telegram Bot & UX
+# 💬 Telegram bot handlers, UX, and per-user chat state
 telegram:
   - changed-files:
       - any-glob-to-any-file:
           - 'src/paperless_genie/bot.py'
+          - 'src/paperless_genie/conversation.py'
 
-# 🤖 AI Agent behavior & instructions
+# 🤖 AI agent behavior: prompts, MCP wiring, and the run loop
 agent:
   - changed-files:
       - any-glob-to-any-file:
-          - 'src/paperless_genie/bot.py'
+          - 'src/paperless_genie/agent.py'
 
-# 🏛️ Paperless-ngx REST & MCP Integration
+# 🏛️ Paperless-ngx REST client and API models
 paperless:
   - changed-files:
       - any-glob-to-any-file:
-          - 'src/paperless_genie/bot.py'
-          - 'src/paperless_genie/config.py'
+          - 'src/paperless_genie/paperless.py'
 
-# 🧪 Automated Tests
+# 🧪 Test-only pull requests: EVERY changed file is a test.
+# Deliberately not "any test file changed" — tests accompany nearly every PR,
+# which made this label carry no signal.
 testing:
   - changed-files:
-      - any-glob-to-any-file:
+      - all-globs-to-all-files:
           - 'tests/**'
-          - '**/test_*.py'
 
 # 📚 Documentation
 documentation:
@@ -32,15 +35,20 @@ documentation:
       - any-glob-to-any-file:
           - '**/*.md'
           - 'docs/**'
+          - 'mkdocs.yaml'
 
-# ⚙️ CI/CD workflows and local project configuration
+# ⚙️ CI/CD workflows and repo automation config.
+# pyproject.toml/uv.lock are deliberately NOT here: dependency bumps already
+# get `dependencies` from Dependabot, and lint/build config is not CI.
 ci-cd:
   - changed-files:
       - any-glob-to-any-file:
           - '.github/workflows/**'
-          - 'pyproject.toml'
-          - 'uv.lock'
+          - '.github/labeler.yml'
+          - '.github/release.yml'
+          - '.github/dependabot.yaml'
           - '.pre-commit-config.yaml'
+          - '.coderabbit.yaml'
 
 # 📦 Infrastructure & Docker
 infrastructure:
@@ -54,3 +62,7 @@ enhancement:
   - head-branch: ['^feat/', '^feature/']
 bug:
   - head-branch: ['^bug/', '^fix/', '^bugfix/']
+refactoring:
+  - head-branch: ['^refactor/']
+performance:
+  - head-branch: ['^perf/']
