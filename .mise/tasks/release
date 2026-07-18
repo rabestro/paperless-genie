@@ -40,13 +40,13 @@ original_branch="$(git branch --show-current)"
 trap 'git switch "$original_branch" >/dev/null 2>&1 || true' EXIT
 
 git fetch origin main --quiet
-git switch -c release/wip origin/main
+git switch -C release/wip origin/main
 
 uv version --bump "$bump"
 new="$(uv version --short)"
 tag="v${new}"
 branch="release/${tag}"
-git branch -m "$branch"
+git branch -M "$branch"
 
 git add pyproject.toml uv.lock
 git commit -m "chore: release ${tag}"
