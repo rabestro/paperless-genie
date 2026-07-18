@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+#MISE description="🔖 Bump version and open the release PR"
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: mise run release <patch|minor|major>
+
+Bumps the version (pyproject.toml + uv.lock), commits it on a fresh
+release/vX.Y.Z branch off origin/main, pushes it, and opens the release
+PR with gh.
+
+After the PR is merged, tag the release yourself from an updated main —
+a human must push the tag, since a GITHUB_TOKEN push wouldn't trigger
+publish.yaml / tag-release.yaml:
+  git switch main && git pull && git tag vX.Y.Z && git push origin vX.Y.Z
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+bump="${1:-}"
+if [[ ! "$bump" =~ ^(patch|minor|major)$ ]]; then
+  echo "❌ Error: expected bump type 'patch', 'minor', or 'major', got '${bump:-<none>}'" >&2
+  echo "" >&2
+  usage >&2
+  exit 1
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "❌ Working tree has uncommitted changes — commit or stash them first." >&2
+  exit 1
+fi
+
+original_branch="$(git branch --show-current)"
+trap 'git switch "$original_branch" >/dev/null 2>&1 || true' EXIT
+
+git fetch origin main --quiet
+git switch -C release/wip origin/main
+
+uv version --bump "$bump"
+new="$(uv version --short)"
+tag="v${new}"
+branch="release/${tag}"
+git branch -M "$branch"
+
+git add pyproject.toml uv.lock
+git commit -m "chore: release ${tag}"
+git push -u origin "$branch"
+
+gh pr create \
+  --base main \
+  --title "chore: release ${tag}" \
+  --body "$(cat <<BODY
+## Summary
+Release ${tag}.
+
+## Next step after merge
+Tag it yourself from an updated main (a human push is required — GITHUB_TOKEN
+pushes don't trigger \`publish.yaml\` / \`tag-release.yaml\`):
+
+\`\`\`
+git switch main && git pull && git tag ${tag} && git push origin ${tag}
+\`\`\`
+BODY
+)"
+
+echo ""
+echo "✅ Opened the release PR for ${tag}."

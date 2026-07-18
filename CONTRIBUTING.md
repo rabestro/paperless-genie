@@ -75,8 +75,9 @@ Releases are cut by the maintainer; contributors never touch versioning in a pul
 request. Because `main` requires a pull request, the version bump goes through one too:
 
 1. `mise run release <patch|minor|major>` — bumps the version in `pyproject.toml` and
-   `uv.lock` locally (via `uv version --bump`) and prints the remaining steps.
-2. Commit the bump on a `release/vX.Y.Z` branch, open a PR, let CI pass, and merge it.
+   `uv.lock` (via `uv version --bump`), commits it on a `release/vX.Y.Z` branch, pushes
+   it, and opens the release PR with `gh`.
+2. Let CI pass and merge the PR.
 3. From an updated `main`, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
 Pushing the tag (as a human, not a bot token, so the workflows actually trigger) builds
