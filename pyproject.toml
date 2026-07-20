@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
   "pyTelegramBotAPI>=4.20.0",
-  "google-antigravity>=0.1.0",
+  "google-antigravity>=0.1.7",
   "httpx>=0.28.0",
   "python-dotenv>=1.0",
   "pydantic>=2",
