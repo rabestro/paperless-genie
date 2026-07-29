@@ -11,3 +11,4 @@ services:
       # Optional; empty when unset in .env, and config.py falls back to its
       # default — so the default lives only in config.py, not duplicated here.
       - GEMINI_MODEL=${GEMINI_MODEL:-}
+      - PAPERLESS_API_VERSION=${PAPERLESS_API_VERSION:-}

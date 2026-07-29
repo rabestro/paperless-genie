@@ -23,6 +23,7 @@ _ALLOWED_MCP_ENV_KEYS = {
     "PAPERLESS_URL",
     "PAPERLESS_API_TOKEN",
     "PAPERLESS_API_KEY",
+    "PAPERLESS_API_VERSION",
 }
 
 
@@ -57,6 +58,15 @@ def test_build_mcp_env_forwards_allowlisted_plumbing(monkeypatch: pytest.MonkeyP
     assert env["HOME"] == "/home/genie"
     assert env["HTTPS_PROXY"] == "http://proxy.example:8080"
     assert env["NODE_EXTRA_CA_CERTS"] == "/etc/ssl/internal-ca.pem"
+
+
+def test_build_mcp_env_forwards_paperless_api_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PAPERLESS_URL", "http://paperless.example")
+    monkeypatch.setattr(Config, "PAPERLESS_API_VERSION", "10")
+
+    env = agent_module._build_mcp_env("token")
+
+    assert env["PAPERLESS_API_VERSION"] == "10"
 
 
 def test_build_mcp_env_omits_absent_plumbing_vars(monkeypatch: pytest.MonkeyPatch) -> None:

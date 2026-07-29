@@ -30,7 +30,7 @@ RUN groupadd --system app \
 # Pre-install an exact pinned version of the Paperless MCP server so message
 # handling never fetches package code from npm at request time. Bump this
 # alongside the version documented in README.md's local setup instructions.
-ARG PAPERLESS_MCP_VERSION=2.0.0
+ARG PAPERLESS_MCP_VERSION=2.0.1
 RUN npm install -g "@baruchiro/paperless-mcp@${PAPERLESS_MCP_VERSION}" \
     && npm cache clean --force
 
