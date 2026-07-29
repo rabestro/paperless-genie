@@ -436,6 +436,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hardware-requirements-cpu-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ Hardware Requirements &amp; CPU Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -746,6 +757,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hardware-requirements-cpu-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ Hardware Requirements &amp; CPU Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -793,6 +815,16 @@
 <li><strong>Smart PDF Archiving</strong>: Send a PDF document via Telegram. The bot analyzes the document, extracts metadata, uploads it to Paperless-ngx, sets the tags/correspondent/date, and appends a detailed note.</li>
 <li><strong>Granular Multi-User Permissions</strong>: Map Telegram User IDs to Paperless API Tokens so users only see and edit documents they have access to in your Paperless-ngx instance.</li>
 <li><strong>No Server Mount Required</strong>: The bot interacts entirely via Paperless API and temporary folder paths, keeping your server clean.</li>
+</ul>
+<hr />
+<h2 id="hardware-requirements-cpu-compatibility">⚠️ Hardware Requirements &amp; CPU Compatibility</h2>
+<p>This bot relies on the <strong>Google Antigravity SDK</strong> (<code>google-antigravity</code>), which includes pre-compiled native Go binaries requiring specific CPU instruction extensions:</p>
+<ul>
+<li><strong>x86_64 / amd64</strong>: Requires <strong>AVX</strong> instructions (Intel Haswell / 4th Gen 2013+ or AMD Bulldozer+).</li>
+<li>❌ <em>Not supported</em>: Older CPUs and many Synology NAS models (e.g., Intel Celeron J3455/J4125, Atom) without AVX. Crashes with <code>FATAL ERROR: This binary was compiled with avx enabled...</code> (see issue <a href="https://github.com/rabestro/paperless-genie/issues/79">#79</a>).</li>
+<li><strong>ARM64 / aarch64</strong>: Requires <strong>ARM Cryptography Extensions (AES)</strong>.</li>
+<li>❌ <em>Not supported</em>: <strong>Raspberry Pi 3</strong> and <strong>Raspberry Pi 4</strong> (Broadcom BCM2837 and BCM2711 lack hardware AES crypto extensions). Crashes with <code>FATAL ERROR: This binary was compiled with aes enabled...</code>.</li>
+<li>✅ <em>Supported</em>: <strong>Raspberry Pi 5</strong> (Broadcom BCM2712 / Cortex-A76), Apple Silicon, and modern ARM64 cloud servers.</li>
 </ul>
 <hr />
 <h2 id="quick-start">Quick Start</h2>

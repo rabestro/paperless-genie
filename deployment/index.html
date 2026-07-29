@@ -934,6 +934,10 @@
 
 <h1 id="deployment-guide">Deployment Guide</h1>
 <p><code>paperless-genie</code> can be deployed in production using <strong>Docker Compose</strong> or as a <strong>systemd service</strong> on a Linux server.</p>
+<blockquote>
+<p>[!WARNING]
+<strong>CPU Requirements</strong>: Ensure your server CPU supports <strong>AVX</strong> (for x86_64) or <strong>ARM Cryptography Extensions / AES</strong> (for ARM64). Note that <strong>Raspberry Pi 3</strong> and <strong>Raspberry Pi 4</strong> are unsupported as their Broadcom SoCs lack hardware AES crypto extensions. <strong>Raspberry Pi 5</strong> and modern cloud servers are fully supported.</p>
+</blockquote>
 <hr />
 <h2 id="option-1-docker-compose-recommended">🐳 Option 1: Docker Compose (Recommended)</h2>
 <p>Running the bot inside Docker is the easiest method. The Docker image automatically installs Node.js, ensuring that Node-based MCP servers (like Paperless-ngx) work out of the box.</p>
