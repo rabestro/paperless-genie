@@ -19,7 +19,6 @@ _ALLOWED_MCP_ENV_KEYS = {
     "https_proxy",
     "no_proxy",
     "NODE_EXTRA_CA_CERTS",
-    "PAPERLESS_API_VERSION",
 } | {
     "PAPERLESS_URL",
     "PAPERLESS_API_TOKEN",

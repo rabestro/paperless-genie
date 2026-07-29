@@ -45,7 +45,10 @@ def test_config_validation_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_config_paperless_api_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib  # noqa: PLC0415
+
+    import paperless_genie.config  # noqa: PLC0415
+
     monkeypatch.setenv("PAPERLESS_API_VERSION", "10")
-    # Reload attribute evaluation or set directly
-    monkeypatch.setattr(Config, "PAPERLESS_API_VERSION", "10")
-    assert Config.PAPERLESS_API_VERSION == "10"
+    importlib.reload(paperless_genie.config)
+    assert paperless_genie.config.Config.PAPERLESS_API_VERSION == "10"

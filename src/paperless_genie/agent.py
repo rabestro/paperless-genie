@@ -44,7 +44,6 @@ _MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
     "https_proxy",
     "no_proxy",
     "NODE_EXTRA_CA_CERTS",
-    "PAPERLESS_API_VERSION",
 )
 
 _MCP_BINARY = "paperless-mcp"
