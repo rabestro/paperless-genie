@@ -25,6 +25,18 @@ An AI-powered Telegram bot for **Paperless-ngx** using the **Google Antigravity 
 
 ---
 
+## ⚠️ Hardware Requirements & CPU Compatibility
+
+This bot relies on the **Google Antigravity SDK** (`google-antigravity`), which includes pre-compiled native Go binaries requiring specific CPU instruction extensions:
+
+* **x86_64 / amd64**: Requires **AVX** instructions (Intel Haswell / 4th Gen 2013+ or AMD Bulldozer+).
+  * ❌ *Not supported*: Older CPUs and many Synology NAS models (e.g., Intel Celeron J3455/J4125, Atom) without AVX. Crashes with `FATAL ERROR: This binary was compiled with avx enabled...` (see issue [#79](https://github.com/rabestro/paperless-genie/issues/79)).
+* **ARM64 / aarch64**: Requires **ARM Cryptography Extensions (AES)**.
+  * ❌ *Not supported*: **Raspberry Pi 3** (Broadcom BCM2837 / Cortex-A53 lacks hardware AES extensions). Crashes with `FATAL ERROR: This binary was compiled with aes enabled...`.
+  * ✅ *Supported*: **Raspberry Pi 4**, **Raspberry Pi 5**, Apple Silicon, and modern ARM64 cloud servers.
+
+---
+
 ## 🛠️ Configuration & Setup
 
 ### 1. Environment Variables
