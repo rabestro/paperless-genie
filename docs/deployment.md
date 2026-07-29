@@ -2,6 +2,9 @@
 
 `paperless-genie` can be deployed in production using **Docker Compose** or as a **systemd service** on a Linux server.
 
+> [!WARNING]
+> **CPU Requirements**: Ensure your server CPU supports **AVX** (for x86_64) or **ARM Cryptography Extensions / AES** (for ARM64). Note that **Raspberry Pi 3** and **Raspberry Pi 4** are unsupported as their Broadcom SoCs lack hardware AES crypto extensions. **Raspberry Pi 5** and modern cloud servers are fully supported.
+
 ---
 
 ## 🐳 Option 1: Docker Compose (Recommended)

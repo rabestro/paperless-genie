@@ -22,6 +22,18 @@ Welcome to the **Paperless Genie** documentation!
 
 ---
 
+## ⚠️ Hardware Requirements & CPU Compatibility
+
+This bot relies on the **Google Antigravity SDK** (`google-antigravity`), which includes pre-compiled native Go binaries requiring specific CPU instruction extensions:
+
+* **x86_64 / amd64**: Requires **AVX** instructions (Intel Haswell / 4th Gen 2013+ or AMD Bulldozer+).
+  * ❌ *Not supported*: Older CPUs and many Synology NAS models (e.g., Intel Celeron J3455/J4125, Atom) without AVX. Crashes with `FATAL ERROR: This binary was compiled with avx enabled...` (see issue [#79](https://github.com/rabestro/paperless-genie/issues/79)).
+* **ARM64 / aarch64**: Requires **ARM Cryptography Extensions (AES)**.
+  * ❌ *Not supported*: **Raspberry Pi 3** and **Raspberry Pi 4** (Broadcom BCM2837 and BCM2711 lack hardware AES crypto extensions). Crashes with `FATAL ERROR: This binary was compiled with aes enabled...`.
+  * ✅ *Supported*: **Raspberry Pi 5** (Broadcom BCM2712 / Cortex-A76), Apple Silicon, and modern ARM64 cloud servers.
+
+---
+
 ## Quick Start
 
 1. **Create a Telegram Bot**: Follow the [Telegram Bot Setup Guide](setup/telegram.md) to get a token.
