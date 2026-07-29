@@ -59,6 +59,9 @@ PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_u
 
 # Optional — leave commented to use the default (gemini-3.1-flash-lite)
 #GEMINI_MODEL="gemini-3.1-flash-lite"
+
+# Optional — Paperless-ngx API version (e.g. "10" for Paperless-ngx v3+)
+#PAPERLESS_API_VERSION="10"
 ```
 
 ### 2. Local Environment Setup
@@ -81,7 +84,7 @@ MCP server. Install Node.js 24+ and pre-install the exact pinned version globall
 bot can find it on `PATH` (the Docker image does this automatically):
 
 ```bash
-npm install -g @baruchiro/paperless-mcp@2.0.0
+npm install -g @baruchiro/paperless-mcp@2.0.1
 ```
 
 This version must match the `PAPERLESS_MCP_VERSION` build argument in the [Dockerfile](Dockerfile) —

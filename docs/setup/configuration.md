@@ -13,6 +13,7 @@ All configurations in `paperless-genie` are set using environment variables. The
 | `GEMINI_API_KEY` | API Key from Google AI Studio. | Yes | `AIzaSyD...` |
 | `GEMINI_MODEL` | Gemini model to use. Defaults to `gemini-3.1-flash-lite`. | No | `gemini-3.1-flash-lite` |
 | `PAPERLESS_USER_TOKENS` | JSON mapping of Telegram User IDs to Paperless API Tokens. | Yes | See mapping section below. |
+| `PAPERLESS_API_VERSION` | Paperless-ngx API version (e.g. `10` for Paperless-ngx v3+). | No | `10` |
 
 ---
 

@@ -44,6 +44,7 @@ _MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
     "https_proxy",
     "no_proxy",
     "NODE_EXTRA_CA_CERTS",
+    "PAPERLESS_API_VERSION",
 )
 
 _MCP_BINARY = "paperless-mcp"
@@ -148,6 +149,8 @@ def _build_mcp_env(user_token: str) -> dict[str, str]:
     env["PAPERLESS_URL"] = Config.PAPERLESS_URL
     env["PAPERLESS_API_TOKEN"] = user_token
     env["PAPERLESS_API_KEY"] = user_token
+    if Config.PAPERLESS_API_VERSION:
+        env["PAPERLESS_API_VERSION"] = Config.PAPERLESS_API_VERSION
     return env
 
 
