@@ -50,5 +50,9 @@ def test_config_paperless_api_version(monkeypatch: pytest.MonkeyPatch) -> None:
     import paperless_genie.config  # noqa: PLC0415
 
     monkeypatch.setenv("PAPERLESS_API_VERSION", "10")
-    importlib.reload(paperless_genie.config)
-    assert paperless_genie.config.Config.PAPERLESS_API_VERSION == "10"
+    try:
+        importlib.reload(paperless_genie.config)
+        assert paperless_genie.config.Config.PAPERLESS_API_VERSION == "10"
+    finally:
+        monkeypatch.undo()
+        importlib.reload(paperless_genie.config)
