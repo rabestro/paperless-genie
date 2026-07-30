@@ -20,6 +20,8 @@ class Config:
     # here. This keeps this line the single source of truth for the default.
     GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL") or "gemini-3.1-flash-lite"
     PAPERLESS_API_VERSION: str = os.environ.get("PAPERLESS_API_VERSION") or ""
+    PROMPT_ARCHIVE_PATH: str = os.environ.get("PROMPT_ARCHIVE_PATH") or ""
+    PROMPT_SEARCH_PATH: str = os.environ.get("PROMPT_SEARCH_PATH") or ""
 
     # Mapping of Telegram user IDs to Paperless API tokens
     USER_TOKENS: ClassVar[dict[int, str]] = {}

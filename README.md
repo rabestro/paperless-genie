@@ -62,6 +62,10 @@ PAPERLESS_USER_TOKENS='{"52966251": "token_for_user_1", "12345678": "token_for_u
 
 # Optional — Paperless-ngx API version (e.g. "10" for Paperless-ngx v3+)
 #PAPERLESS_API_VERSION="10"
+
+# Optional — Custom Markdown prompt files for AI instructions
+#PROMPT_ARCHIVE_PATH="/path/to/custom_archive_instructions.md"
+#PROMPT_SEARCH_PATH="/path/to/custom_search_instructions.md"
 ```
 
 ### 2. Local Environment Setup

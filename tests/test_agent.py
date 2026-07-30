@@ -132,19 +132,63 @@ def test_clean_agent_response_leaves_plain_text_untouched() -> None:
 # these lock in the invariants downstream code and #18 depend on.
 
 
-def test_archive_prompt_uses_dynamic_tag_discovery() -> None:
-    assert "list_tags" in agent_module.ARCHIVE_INSTRUCTIONS
-    assert "never guess IDs and never create new tags" in agent_module.ARCHIVE_INSTRUCTIONS
+def test_archive_prompt_uses_dynamic_tag_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PROMPT_ARCHIVE_PATH", "")
+    instructions = agent_module.get_archive_instructions()
+    assert "list_tags" in instructions
+    assert "never guess IDs and never create new tags" in instructions
 
 
-def test_archive_prompt_forbids_markdown_and_links() -> None:
-    assert "Do NOT use markdown links" in agent_module.ARCHIVE_INSTRUCTIONS
-    assert "file://" in agent_module.ARCHIVE_INSTRUCTIONS
+def test_archive_prompt_forbids_markdown_and_links(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PROMPT_ARCHIVE_PATH", "")
+    instructions = agent_module.get_archive_instructions()
+    assert "Do NOT use markdown links" in instructions
+    assert "file://" in instructions
 
 
-def test_search_prompt_requires_id_marker_format() -> None:
-    assert "[#ID]" in agent_module.SEARCH_INSTRUCTIONS
-    assert "same language the user writes in" in agent_module.SEARCH_INSTRUCTIONS
+def test_search_prompt_requires_id_marker_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PROMPT_SEARCH_PATH", "")
+    instructions = agent_module.get_search_instructions()
+    assert "[#ID]" in instructions
+    assert "same language the user writes in" in instructions
+
+
+def test_custom_prompt_loading_overrides_defaults(
+    tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    custom_archive = tmp_path / "custom_archive.md"
+    custom_archive.write_text("Custom Archive Instructions Content", encoding="utf-8")
+    monkeypatch.setattr(Config, "PROMPT_ARCHIVE_PATH", str(custom_archive))
+
+    assert agent_module.get_archive_instructions() == "Custom Archive Instructions Content"
+
+
+def test_custom_prompt_fallback_when_file_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "PROMPT_SEARCH_PATH", "/nonexistent/custom_search.md")
+
+    # Should log warning and fall back to default
+    instructions = agent_module.get_search_instructions()
+    assert "[#ID]" in instructions
+
+
+def test_custom_prompt_fallback_when_path_is_directory(
+    tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Config, "PROMPT_ARCHIVE_PATH", str(tmp_path))
+
+    instructions = agent_module.get_archive_instructions()
+    assert "list_tags" in instructions
+
+
+def test_custom_prompt_fallback_when_file_unreadable(
+    tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    invalid_file = tmp_path / "invalid.md"
+    invalid_file.write_bytes(b"\x80\x81\x82")
+    monkeypatch.setattr(Config, "PROMPT_SEARCH_PATH", str(invalid_file))
+
+    instructions = agent_module.get_search_instructions()
+    assert "[#ID]" in instructions
 
 
 # --- run_agent loop ---------------------------------------------------------
