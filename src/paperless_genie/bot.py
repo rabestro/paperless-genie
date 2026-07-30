@@ -9,7 +9,11 @@ from datetime import UTC, datetime
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from paperless_genie.agent import ARCHIVE_INSTRUCTIONS, SEARCH_INSTRUCTIONS, run_agent
+from paperless_genie.agent import (
+    get_archive_instructions,
+    get_search_instructions,
+    run_agent,
+)
 from paperless_genie.config import Config
 from paperless_genie.conversation import ConversationHistory
 from paperless_genie.paperless import DuplicateDocumentError, PaperlessClient
@@ -288,7 +292,7 @@ async def _archive_file(  # noqa: PLR0913 — cohesive internal helper; bot is t
             f"analyze its content, assign metadata and tags, write a structured note, "
             f"and output a final report."
         )
-        agent_report = await run_agent(ARCHIVE_INSTRUCTIONS, prompt, user_token)
+        agent_report = await run_agent(get_archive_instructions(), prompt, user_token)
 
         await bot.edit_message_text(
             "✅ Processing completed!",
@@ -517,7 +521,7 @@ async def handle_text_query(message: Message, bot: AsyncTeleBot) -> None:
         history = _user_histories[message.from_user.id]
         prompt = history.build_context(message.text)
 
-        agent_report = await run_agent(SEARCH_INSTRUCTIONS, prompt, user_token)
+        agent_report = await run_agent(get_search_instructions(), prompt, user_token)
 
         # Persist the turn so the next message can reference it
         history.add(message.text, agent_report)

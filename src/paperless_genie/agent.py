@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import tempfile
+from pathlib import Path
 
 from google.antigravity import Agent, CapabilitiesConfig, LocalAgentConfig
 from google.antigravity.types import McpStdioServer
@@ -17,6 +18,8 @@ from google.antigravity.types import McpStdioServer
 from paperless_genie.config import Config
 
 logger = logging.getLogger(__name__)
+
+PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 # Regex to strip markdown links containing file:// URLs, e.g. [Title](file:///path)
 _FILE_LINK_RE = re.compile(r"\[([^\]]+)\]\(file://[^)]+\)")
@@ -48,63 +51,39 @@ _MCP_ENV_PASSTHROUGH: tuple[str, ...] = (
 
 _MCP_BINARY = "paperless-mcp"
 
-# System prompt for the archiving agent (document upload → metadata + note).
-ARCHIVE_INSTRUCTIONS = (
-    "You are an expert archiving assistant for the personal archive in Paperless-ngx. "
-    "You are processing a document that has already been successfully uploaded. "
-    "Its ID is provided in the prompt.\n"
-    "Adhere to these rules when updating this document:\n"
-    "1. Call `get_document` with the given ID to fetch its text content and properties.\n"
-    "2. Based on the document's text, determine the correct metadata "
-    "(Title, Created Date, Correspondent, Document Type).\n"
-    "3. Call `update_document` to update the document's Title, "
-    "Created (in YYYY-MM-DD), Correspondent, and Document Type.\n"
-    "4. Call `list_tags` to see every tag that exists in this archive "
-    "(their names and IDs). Decide which existing tags match the document's "
-    "content, judging by tag names.\n"
-    "5. Update the document's tags via `update_document`, passing the complete "
-    "final list of tag IDs: the current tags worth keeping, plus the matching "
-    "tags from step 4, excluding any auto-assigned inbox tag (a tag whose name "
-    "contains 'inbox', case-insensitive). Use only tag IDs returned by "
-    "`list_tags` — never guess IDs and never create new tags. If no existing "
-    "tag matches, keep the current tags (minus the inbox tag).\n"
-    "6. Call `create_document_note` to add a structured note "
-    "describing the document, owner, key details, and historical context.\n"
-    "7. Output a final report describing what actions were done.\n"
-    "IMPORTANT LANGUAGE RULE:\n"
-    "- Detect the language of the document's content and write the note "
-    "and report in that same language.\n"
-    "IMPORTANT FORMATTING RULES:\n"
-    "- The response will be sent as a Telegram message. "
-    "Do NOT use markdown links with URLs. "
-    "Do NOT include any file:// or http:// links in the response.\n"
-    "- Refer to documents only by their title and date, for example: "
-    "'John Doe Passport (15.03.1993)'.\n"
-    "- Use plain text and emoji for formatting. "
-    "Avoid Markdown syntax like **bold** or [text](url)."
-)
 
-# System prompt for the search/query agent (natural-language archive queries).
-SEARCH_INSTRUCTIONS = (
-    "You are a helpful assistant for a personal document archive in Paperless-ngx. "
-    "Use the Paperless-ngx MCP tools to search and retrieve documents to answer "
-    "user queries. Always base your replies on the retrieved documents.\n"
-    "IMPORTANT LANGUAGE RULE:\n"
-    "- Always respond in the same language the user writes in. "
-    "If the user writes in English, reply in English. "
-    "If the user writes in Latvian, reply in Latvian. "
-    "Auto-detect and match the user's language precisely.\n"
-    "IMPORTANT FORMATTING RULES:\n"
-    "- The response will be sent as a Telegram message. "
-    "Do NOT use markdown links with URLs. "
-    "Do NOT include any file:// or http:// links in the response.\n"
-    "- After every document title or description, append its Paperless ID "
-    "in the format [#ID], for example: "
-    "'John Doe Passport (15.03.1993) [#42]'. "
-    "This tag is used by the bot to build download buttons automatically.\n"
-    "- Use plain text, numbered lists, and emoji. "
-    "Avoid Markdown syntax like **bold** or [text](url)."
-)
+def _load_prompt(custom_path: str, default_filename: str) -> str:
+    """Loads system instructions from a custom path if set, otherwise from package defaults.
+
+    Args:
+        custom_path: Optional file path to override the prompt instructions.
+        default_filename: Name of the default markdown file in the prompts directory.
+
+    Returns:
+        The instructions text content.
+    """
+    if custom_path:
+        path = Path(custom_path)
+        if path.exists():
+            return path.read_text(encoding="utf-8").strip()
+        logger.warning(
+            "Custom prompt file '%s' not found. Falling back to default '%s'.",
+            custom_path,
+            default_filename,
+        )
+
+    default_path = PROMPTS_DIR / default_filename
+    return default_path.read_text(encoding="utf-8").strip()
+
+
+def get_archive_instructions() -> str:
+    """Returns system instructions for the archiving agent."""
+    return _load_prompt(Config.PROMPT_ARCHIVE_PATH, "archive_instructions.md")
+
+
+def get_search_instructions() -> str:
+    """Returns system instructions for the search/query agent."""
+    return _load_prompt(Config.PROMPT_SEARCH_PATH, "search_instructions.md")
 
 
 def _clean_agent_response(text: str) -> str:
