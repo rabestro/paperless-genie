@@ -171,6 +171,26 @@ def test_custom_prompt_fallback_when_file_not_found(monkeypatch: pytest.MonkeyPa
     assert "[#ID]" in instructions
 
 
+def test_custom_prompt_fallback_when_path_is_directory(
+    tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Config, "PROMPT_ARCHIVE_PATH", str(tmp_path))
+
+    instructions = agent_module.get_archive_instructions()
+    assert "list_tags" in instructions
+
+
+def test_custom_prompt_fallback_when_file_unreadable(
+    tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    invalid_file = tmp_path / "invalid.md"
+    invalid_file.write_bytes(b"\x80\x81\x82")
+    monkeypatch.setattr(Config, "PROMPT_SEARCH_PATH", str(invalid_file))
+
+    instructions = agent_module.get_search_instructions()
+    assert "[#ID]" in instructions
+
+
 # --- run_agent loop ---------------------------------------------------------
 
 

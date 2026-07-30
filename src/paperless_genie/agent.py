@@ -64,13 +64,21 @@ def _load_prompt(custom_path: str, default_filename: str) -> str:
     """
     if custom_path:
         path = Path(custom_path)
-        if path.exists():
-            return path.read_text(encoding="utf-8").strip()
-        logger.warning(
-            "Custom prompt file '%s' not found. Falling back to default '%s'.",
-            custom_path,
-            default_filename,
-        )
+        try:
+            if path.is_file():
+                return path.read_text(encoding="utf-8").strip()
+            logger.warning(
+                "Custom prompt path '%s' is not a file. Falling back to default '%s'.",
+                custom_path,
+                default_filename,
+            )
+        except (OSError, UnicodeError) as err:
+            logger.warning(
+                "Could not load custom prompt file '%s': %s. Falling back to default '%s'.",
+                custom_path,
+                err,
+                default_filename,
+            )
 
     default_path = PROMPTS_DIR / default_filename
     return default_path.read_text(encoding="utf-8").strip()
