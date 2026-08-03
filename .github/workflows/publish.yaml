@@ -28,7 +28,7 @@ jobs:
 
       # QEMU is required to emulate arm64 on the amd64 GitHub-hosted runner.
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       # Buildx is required for multi-platform builds and the GHA cache backend.
       - name: Set up Docker Buildx
