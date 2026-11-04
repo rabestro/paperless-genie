@@ -446,18 +446,19 @@ async def handle_doc_button(call: CallbackQuery, bot: AsyncTeleBot) -> None:
         call: The incoming callback query from Telegram.
         bot: The bot instance (injected by telebot via pass_bot).
     """
+    # pytelegrambotapi 4.37.0 mistypes callback_query_id as int (Telegram sends str)
     if not call.from_user or call.from_user.id not in Config.USER_TOKENS:
-        await bot.answer_callback_query(call.id, "⛔ Not authorized.")
+        await bot.answer_callback_query(call.id, "⛔ Not authorized.")  # type: ignore[arg-type]
         return
 
     # Narrow types: both fields are guaranteed non-None for real button presses
     if not call.data or not call.message or not hasattr(call.message, "chat"):
-        await bot.answer_callback_query(call.id, "⚠️ Invalid callback data.")
+        await bot.answer_callback_query(call.id, "⚠️ Invalid callback data.")  # type: ignore[arg-type]
         return
 
     chat_id = call.message.chat.id
     doc_id = int(call.data.split(":", 1)[1])
-    await bot.answer_callback_query(call.id, f"⬇️ Fetching document #{doc_id}…")
+    await bot.answer_callback_query(call.id, f"⬇️ Fetching document #{doc_id}…")  # type: ignore[arg-type]
 
     try:
         user_token = Config.get_token_for_user(call.from_user.id)
